@@ -17,34 +17,15 @@ class ClientS3ORAM
 {
 private:
 	//client storage for ORAM operations
-    TYPE_ID** metaData; //this is for position_map scanning optimization
-    TYPE_POS_MAP* pos_map;
+	vector<TYPE_INDEX> *pos_map;
+	
+	vector<TYPE_DATA *> *stash;
+	vector<TYPE_DATA *> *data_cache;
     
-    
-    //variables for retrieval operation
-	TYPE_INDEX numRead;
-	TYPE_DATA** sharedVector;
-    
-    TYPE_DATA** retrievedShare;
-    TYPE_DATA* recoveredBlock;
     
     unsigned char** vector_buffer_out;	
     unsigned char** block_buffer_out; 
     unsigned char** blocks_buffer_in;
-    
-    //variables for eviction
-    TYPE_INDEX numEvict;
-    TYPE_DATA*** sharedMatrix;
-	TYPE_DATA** evictMatrix; 
-	unsigned char** evict_buffer_out;
-
-    //thread
-	pthread_t thread_sockets[NUM_SERVERS];
-
-#if defined(PRECOMP_MODE)
-	TYPE_DATA** precompOnes;
-	TYPE_DATA** precompZeros;
-#endif
 
 public:
     ClientS3ORAM();

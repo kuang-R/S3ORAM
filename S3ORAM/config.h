@@ -13,6 +13,7 @@
 #include "fstream"
 #include <iostream>
 #include "stdio.h"
+#include "time.h"
 #include "stdlib.h"
 #include <cstring>
 #include <bitset>
@@ -38,12 +39,13 @@ static inline std::string to_string(T value)
 #define NTL_LIB //disable it if compiled for android
 //=== PARAMETERS ============================================================
 #define BLOCK_SIZE 128
-#define HEIGHT 4
-#define BUCKET_SIZE 333 
-#define EVICT_RATE 280
-const int H = HEIGHT; 
+#define STASH 3
+#define DATA_CACHE 2
 
-static const unsigned long long P = 1073742353; //prime field - should have length equal to the defined TYPE_DATA
+#define HEIGHT 4
+#define BUCKET_SIZE 333
+
+const int H = HEIGHT; 
 typedef unsigned long long TYPE_DATA;
 
 
@@ -53,10 +55,7 @@ typedef unsigned long long TYPE_DATA;
 
 
 //=== SECRET SHARING PARAMETER================================================
-#define NUM_SERVERS 7
 #define PRIVACY_LEVEL 3
-//const long long int vandermonde[NUM_SERVERS] = {3 , -3 + P, 1};
-const long long int vandermonde[NUM_SERVERS] = {7, -21+P, 35, -35+P, 21, -7+P, 1};
 
 /** Vandermonde Values for Different Number of Servers (7, 5, 3)*/
 //{7, -21+P, 35, -35+P, 21, -7+P, 1};//{5, -10+P, 10, -5+P, 1};//{3, -3+P, 1};
@@ -107,18 +106,20 @@ typedef unsigned long long TYPE_ID;
 typedef long long int TYPE_INDEX;
 typedef struct type_pos_map
 {
-	TYPE_INDEX pathID;
-	TYPE_INDEX pathIdx;
+	TYPE_INDEX virtualID;
+	TYPE_INDEX realID;
 }TYPE_POS_MAP;
 
 
 #define DATA_CHUNKS BLOCK_SIZE/sizeof(TYPE_DATA)
+const TYPE_INDEX N = (int)(pow(2, HEIGHT+1)-1) * BUCKET_SIZE;
+const TYPE_INDEX NStore =  (N / STASH + 1) * STASH;  
+
 const TYPE_INDEX PRECOMP_SIZE = BUCKET_SIZE*(2*HEIGHT+1)*BUCKET_SIZE*(2*HEIGHT+1);
 const TYPE_INDEX N_leaf = pow(2,H);
 const TYPE_INDEX NUM_BLOCK = ((int) (pow(2,HEIGHT-1))*EVICT_RATE-1);
 const TYPE_INDEX NUM_NODES = (int) (pow(2,HEIGHT+1)-1);
 
-const TYPE_INDEX evictMatSize = 2*BUCKET_SIZE*BUCKET_SIZE;
 //====================================================================
 
 

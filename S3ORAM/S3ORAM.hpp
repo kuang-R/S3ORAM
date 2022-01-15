@@ -16,7 +16,7 @@ public:
     S3ORAM();
     ~S3ORAM();
     
-    int build(TYPE_POS_MAP* pos_map, TYPE_ID** metaData);
+    int build(vector<TYPE_INDEX> *pos_map);
 
     int getEvictIdx (TYPE_INDEX *srcIdx, TYPE_INDEX *destIdx, TYPE_INDEX *siblIdx, string evict_str);
     

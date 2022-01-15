@@ -29,182 +29,38 @@ S3ORAM::~S3ORAM()
  * @param metaData: (output) metaData of position map for scanning optimizations
  * @return 0 if successful
  */   
-int S3ORAM::build(TYPE_POS_MAP* pos_map, TYPE_ID** metaData)
+int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
 {
-	int div = ceil(NUM_BLOCK/(double)N_leaf);
-	assert(div <= BUCKET_SIZE && "ERROR: CHECK THE PARAMETERS => LEAVES CANNOT STORE ALL");
-	
-  	TYPE_DATA** bucket = new TYPE_DATA*[DATA_CHUNKS];
-    for (int i = 0 ; i < DATA_CHUNKS; i++ )
-    {
-        bucket[i] = new TYPE_DATA[BUCKET_SIZE];
-        memset(bucket[i],0,sizeof(TYPE_DATA)*BUCKET_SIZE);
-    }
-    
-    TYPE_DATA** temp = new TYPE_DATA*[DATA_CHUNKS];
-    for (int i = 0 ; i < DATA_CHUNKS; i++ )
-    {
-        temp[i] = new TYPE_DATA[BUCKET_SIZE];
-        memset(temp[i],0,sizeof(TYPE_DATA)*BUCKET_SIZE);
-    }
     FILE* file_out = NULL;
-    string path;
+    string path = clientDataDir + to_string(0);
+	if((file_out = fopen(path.c_str(),"wb+")) == NULL)
+	{
+		cout<< "[S3ORAM] File Cannot be Opened!!" <<endl;
+		exit(0);
+	}
 		
     cout << "=================================================================" << endl;
-    cout<< "[S3ORAM] Creating Buckets on Disk" << endl;
+    cout<< "[S3ORAM] Creating Blocks on Disk" << endl;
     
     boost::progress_display show_progress2(NUM_NODES);
     
-    //generate bucket ID pools
-    vector<TYPE_ID> blockIDs;
-    for(TYPE_ID i = 0; i <NUM_BLOCK;i++)
+    //initialize the position map
+    for(TYPE_ID i = 0; i < NStore;i++)
     {
-        blockIDs.push_back(i+1);
+        (*pos_map)[i] = i;
     }
     //random permutation using built-in function
-    std::random_shuffle ( blockIDs.begin(), blockIDs.end() );
+    std::random_shuffle ( pos_map->begin(), pos_map->end());
     
-    
-    //non-leaf buckets are all empty
-    for(TYPE_INDEX i = 0 ; i < NUM_NODES/2; i ++)
-    {
-        file_out = NULL;
-        path = clientDataDir + to_string(i);
-        if((file_out = fopen(path.c_str(),"wb+")) == NULL)
-        {
-            cout<< "[S3ORAM] File Cannot be Opened!!" <<endl;
-            exit(0);
-        }
-        for(int ii = 0 ; ii <DATA_CHUNKS; ii++)
-        {
-            fwrite(bucket[ii], 1, BUCKET_SIZE*sizeof(TYPE_DATA), file_out);
-        }
-        fclose(file_out);
-    }
-    
-    //generate random blocks in leaf-buckets
-    TYPE_INDEX iter= 0;
-    for(TYPE_INDEX i = NUM_NODES/2 ; i < NUM_NODES; i++)
-    {
-        memset(bucket[0],0,sizeof(TYPE_DATA)*BUCKET_SIZE);
-        for(int ii = BUCKET_SIZE/2 ; ii<BUCKET_SIZE; ii++)
-        {
-            if(iter>=NUM_BLOCK)
-                break;
-            bucket[0][ii] = blockIDs[iter];
-            pos_map[blockIDs[iter]].pathID = i;
-            pos_map[blockIDs[iter]].pathIdx = ii+(BUCKET_SIZE*H)  ;
-            metaData[i][ii]= blockIDs[iter];
-            
-            iter++;
-            
-        }
-        //write bucket to file
-        file_out = NULL;
-        path = clientDataDir + to_string(i);
-        if((file_out = fopen(path.c_str(),"wb+")) == NULL)
-        {
-            cout<< "[S3ORAM] File Cannot be Opened!!" <<endl;
-            exit(0);
-        }
-        for(int ii = 0 ; ii < DATA_CHUNKS; ii++)
-        {
-            fwrite(bucket[ii], 1, BUCKET_SIZE*sizeof(TYPE_DATA), file_out);
-        }
-        fclose(file_out);
-    }
-    
-    
-    cout << "=================================================================" << endl;
-    cout<< "[S3ORAM] Creating Shares on Disk" << endl;
-    boost::progress_display show_progress(NUM_NODES);
-    
-    TYPE_DATA*** bucketShares = new TYPE_DATA**[NUM_SERVERS];
-    for(TYPE_INDEX k = 0; k < NUM_SERVERS; k++)
-    {
-        bucketShares[k] = new TYPE_DATA*[DATA_CHUNKS];
-        for(int i = 0 ; i < DATA_CHUNKS ; i++ )
-        {
-            bucketShares[k][i] = new TYPE_DATA[BUCKET_SIZE];
-        }
-    }
-        
-		
-    TYPE_DATA shares[DATA_CHUNKS][NUM_SERVERS];
-    FILE* file_in = NULL;
-    file_out = NULL;
-        
-    auto start = time_now;
-    auto end = time_now;
-    
-    for (TYPE_INDEX i = 0; i < NUM_NODES; i++)
-    {
-        path = clientDataDir + to_string(i);
-        if((file_in = fopen(path.c_str(),"rb")) == NULL){
-            cout<< "[S3ORAM] File Cannot be Opened!!" <<endl;
-            exit(0);
-        }
-        for(int ii = 0 ; ii < DATA_CHUNKS; ii++)
-        {
-        
-            fread(bucket[ii] ,1 , BUCKET_SIZE*sizeof(TYPE_DATA), file_in);
-            for(TYPE_INDEX j = 0; j < BUCKET_SIZE; j++)
-            {           
-                createShares(bucket[ii][j], shares[ii]);         
-                for(TYPE_INDEX k = 0; k < NUM_SERVERS; k++)  
-                {
-                    memcpy(&bucketShares[k][ii][j], &shares[ii][k], sizeof(TYPE_DATA));
-                }
-            }
-        }
-        
-        fclose(file_in);
-        
-        start = time_now;
-        for(TYPE_INDEX k = 0; k < NUM_SERVERS; k++) 
-        {
-            path = rootPath + to_string(k) + "/" + to_string(i);
-            if((file_out = fopen(path.c_str(),"wb+")) == NULL)
-            {
-                cout<< "[S3ORAM] File Cannot be Opened!!" <<endl;
-                exit;
-            }
-            for(int ii = 0 ; ii< DATA_CHUNKS ; ii++)
-            {
-                fwrite(bucketShares[k][ii], 1, BUCKET_SIZE*sizeof(TYPE_DATA), file_out);
-            }
-            fclose(file_out);
-        }    
-        end = time_now;
-        ++show_progress;
-    }
-		
-    	
-    cout<< "[S3ORAM] Elapsed Time for Init on Disk: "<< std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<" ns"<<endl;
-		
-    for(TYPE_INDEX k = 0; k < NUM_SERVERS; k++)
-    {
-        for(int i = 0 ; i < DATA_CHUNKS; i++)
-        {
-            delete bucketShares[k][i];
-        }
-        delete bucketShares[k];
-    }
-    delete bucketShares;
-    for(int i = 0 ; i < DATA_CHUNKS; i++)
-    {
-        delete bucket[i];
-        delete temp[i];
-    }
-    delete bucket;
-    delete temp;
-
-	cout<<endl;
-	cout << "=================================================================" << endl;
-	cout<< "[S3ORAM] Shared ORAM Tree is Initialized for " << NUM_SERVERS << " Servers" <<endl;
-	cout << "=================================================================" << endl;
-	cout<<endl;
-	
+    //generate and write random blocks
+	TYPE_DATA *block = new TYPE_DATA[DATA_CHUNKS];
+	for (TYPE_INDEX i = 0; i < NStore; i++)
+	{
+		Utils.fillRandom(block, BLOCK_SIZE);
+		fwrite(block, 1, BLOCK_SIZE, file_out);
+	}
+	delete[] block;
+	fclose(file_out);
 	return 0;
 }
 

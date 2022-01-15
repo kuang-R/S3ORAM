@@ -16,50 +16,16 @@ char ClientS3ORAM::timestamp[16];
 
 ClientS3ORAM::ClientS3ORAM()
 {
-	this->pos_map = new TYPE_POS_MAP[NUM_BLOCK+1];
+	this->pos_map = new vector<TYPE_INDEX>(NStore);
     
-    this->metaData = new TYPE_ID*[NUM_NODES];
-	for (int i = 0 ; i < NUM_NODES; i++)
-    {
-        this->metaData[i] = new TYPE_ID[BUCKET_SIZE];
-    }
+	this->stash = new vector<TYPE_INDEX>(STASH);
+	for (int i = 0; i < STASH; i++)
+		this->stash[i] = new DATA_TYPE[DATA_CHUNKS];
+		
+	this->data_cache = new vector<TYPE_INDEX>(DATA_CACHE);
+	for (int i = 0; i < DATA_CACHE; i++)
+		this->data_cache = new DATA_TYPE[DATA_CHUNKS];
     
-    retrievedShare = new TYPE_DATA*[NUM_SERVERS];
-	for(int k = 0 ; k < NUM_SERVERS; k++)
-    {
-        retrievedShare[k] = new TYPE_DATA[DATA_CHUNKS];
-    }
-    recoveredBlock = new TYPE_DATA[DATA_CHUNKS];
-    
-    blocks_buffer_in = new unsigned char*[NUM_SERVERS];
-    
-    for(int i = 0; i < NUM_SERVERS ; i++)
-    {
-        blocks_buffer_in[i] = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS];
-    }
-    
-	this->sharedMatrix = new TYPE_DATA**[NUM_SERVERS];
-	for (TYPE_INDEX i = 0 ; i < NUM_SERVERS; i++)
-	{
-		this->sharedMatrix[i] = new TYPE_DATA*[H+1];
-		for(TYPE_INDEX j = 0 ; j < H+1; j++)
-		{
-			this->sharedMatrix[i][j] = new TYPE_DATA[evictMatSize];
-		}
-	}
-
-	this->evictMatrix = new TYPE_DATA*[H+1];
-	for(TYPE_INDEX i = 0 ; i < H+1; i++)
-	{
-		this->evictMatrix[i] = new TYPE_DATA[evictMatSize];
-	}
-	
-	this->sharedVector = new TYPE_DATA*[NUM_SERVERS];
-	for(int i = 0; i < NUM_SERVERS; i++)
-	{
-		this->sharedVector[i] = new TYPE_DATA[(H+1)*BUCKET_SIZE];
-	}
-	
     this->vector_buffer_out = new unsigned char*[NUM_SERVERS];
     for (TYPE_INDEX i = 0 ; i < NUM_SERVERS ; i++)
     {
@@ -72,52 +38,16 @@ ClientS3ORAM::ClientS3ORAM()
         this->block_buffer_out[i]= new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS+sizeof(TYPE_INDEX)];
         memset(this->block_buffer_out[i], 0, sizeof(TYPE_DATA)*DATA_CHUNKS+sizeof(TYPE_INDEX) );
     }
-        
-    this->evict_buffer_out = new unsigned char*[NUM_SERVERS];
-    for (TYPE_INDEX i = 0 ; i < NUM_SERVERS ; i++)
-    {
-        this->evict_buffer_out[i] = new unsigned char[(H+1)*evictMatSize*sizeof(TYPE_DATA) + sizeof(TYPE_INDEX)];
-    }
-    
-	#if defined(PRECOMP_MODE) // ================================================================================================
-		this->precompOnes = new TYPE_DATA*[NUM_SERVERS];
-		for (TYPE_INDEX i = 0 ; i < NUM_SERVERS ; i++){
-			this->precompOnes[i] = new TYPE_DATA[PRECOMP_SIZE];
-		}
-		
-		this->precompZeros = new TYPE_DATA*[NUM_SERVERS];
-		for (TYPE_INDEX i = 0 ; i < NUM_SERVERS ; i++){
-			this->precompZeros[i] = new TYPE_DATA[PRECOMP_SIZE];
-		}
-		
-		S3ORAM ORAM;
-		
-		auto start = time_now;
-		ORAM.precomputeShares(0, precompZeros, PRECOMP_SIZE);
-		ORAM.precomputeShares(1, precompOnes, PRECOMP_SIZE);
-		auto end = time_now;
-		cout<< "	[ClientS3ORAM] " << 2*PRECOMP_SIZE << " Logical Values Precomputed in" << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-	#endif //defined(PRECOMP_MODE) ================================================================================================
 	
 	time_t now = time(0);
 	char* dt = ctime(&now);
 	FILE* file_out = NULL;
 	string path = clientLocalDir + "lastest_config";
-	string info = "Height of Tree: " + to_string(HEIGHT) + "\n";
-	info += "Number of Blocks: " + to_string(NUM_BLOCK) + "\n";
-	info += "Bucket Size: " + to_string(BUCKET_SIZE) + "\n";
-	info += "Eviction Rate: " + to_string(EVICT_RATE) + "\n";
+	string info = "Number of Blocks: " + to_string(NStore) + "\n";
 	info += "Block Size (B): " + to_string(BLOCK_SIZE) + "\n";
-	info += "ID Size (B): " + to_string(sizeof(TYPE_ID)) + "\n";
 	info += "Number of Chunks: " + to_string(DATA_CHUNKS) + "\n";
-	info += "Total Size of Data (MB): " + to_string((NUM_BLOCK*(BLOCK_SIZE+sizeof(TYPE_ID)))/1048576.0) + "\n";
-	info += "Total Size of ORAM (MB): " + to_string(BUCKET_SIZE*NUM_NODES*(BLOCK_SIZE+sizeof(TYPE_ID))/1048576.0) + "\n";
-	
-	#if defined(PRECOMP_MODE)
-		info += "PRECOMPUTATION MODE: Active\n";
-	#else
-		info += "PRECOMPUTATION MODE: Inactive\n";
-	#endif 
+	info += "Total Size of Data (MB): " + to_string((N*BLOCK_SIZE)/1048576.0) + "\n";
+	info += "Total Size of ORAM (MB): " + to_string(NStore*BLOCK_SIZE/1048576.0) + "\n";
 	
 	if((file_out = fopen(path.c_str(),"w+")) == NULL){
 		cout<< "	File Cannot be Opened!!" <<endl;
@@ -148,23 +78,15 @@ ClientS3ORAM::~ClientS3ORAM()
  */ 
 int ClientS3ORAM::init()
 {
-    this->numRead = 0;
-    this->numEvict = 0;
-
+    
     auto start = time_now;
     auto end = time_now;
-
-    for ( TYPE_INDEX i = 0 ; i <= NUM_BLOCK; i ++ )
-    {
-        this->pos_map[i].pathID = -1;
-        this->pos_map[i].pathIdx = -1;
-    }
-
+	
     start = time_now;
     S3ORAM ORAM;
-    ORAM.build(this->pos_map,this->metaData);
-    
+    ORAM.build(this->pos_map);
     end = time_now;
+	
 	cout<<endl;
     cout<< "Elapsed Time for Setup on Disk: "<<std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<<" ns"<<endl;
     cout<<endl;
@@ -173,17 +95,13 @@ int ClientS3ORAM::init()
     output.open(path2, std::ios_base::app);
     output<< "INITIALIZATION ON CLIENT: Performed\n";
     output.close();
-
-    //transfer to servers all ORAM structure (send files) //IMPLEMENT LATER
 	
 	FILE* local_data = NULL;
 	if((local_data = fopen(clientTempPath.c_str(),"wb+")) == NULL){
 		cout<< "	[init] File Cannot be Opened!!" <<endl;
 		exit(0);
 	}
-	fwrite(this->pos_map, 1, (NUM_BLOCK+1)*sizeof(TYPE_POS_MAP), local_data);
-	fwrite(&this->numEvict, sizeof(this->numEvict), 1, local_data);
-	fwrite(&this->numRead, sizeof(this->numRead), 1, local_data);
+	fwrite(this->pos_map.data(), NStore, sizeof(TYPE_INDEX), local_data);
 	fclose(local_data);
 	
     return 0;

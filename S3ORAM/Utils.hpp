@@ -101,6 +101,14 @@ public:
 		return _LongRand() % bound;
 	#endif
 	}
+	
+	static inline void fillRandom(void *block, size_t len)
+	{
+		int *array = (int *)block;
+		srand((unsigned)time(NULL));
+		for (int i = 0; i < len / sizeof(int); i++)
+			array[i] = rand();
+	}
 };
 
 #endif // UTILS_HPP

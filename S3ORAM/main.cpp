@@ -76,7 +76,7 @@ int main(int argc, char **argv)
             client->init();
             do
             {
-                cout << "TRANSMIT INITIALIZED S3ORAM DATA TO NON-LOCAL SERVERS? (y/n)";
+                cout << "TRANSMIT INITIALIZED JUMPORAM DATA TO NON-LOCAL SERVERS? (y/n)";
                 cin >> response;
                 response = tolower(response);
             }
