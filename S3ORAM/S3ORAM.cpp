@@ -42,7 +42,7 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
     cout << "=================================================================" << endl;
     cout<< "[S3ORAM] Creating Blocks on Disk" << endl;
     
-    boost::progress_display show_progress2(NUM_NODES);
+    boost::progress_display show_progress2(NStore);
     
     //initialize the position map
     for(TYPE_ID i = 0; i < NStore;i++)
@@ -56,8 +56,9 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
 	TYPE_DATA *block = new TYPE_DATA[DATA_CHUNKS];
 	for (TYPE_INDEX i = 0; i < NStore; i++)
 	{
-		Utils.fillRandom(block, BLOCK_SIZE);
+		Utils::fillRandom((void *)block, (size_t)BLOCK_SIZE);
 		fwrite(block, 1, BLOCK_SIZE, file_out);
+		++show_progress2;
 	}
 	delete[] block;
 	fclose(file_out);

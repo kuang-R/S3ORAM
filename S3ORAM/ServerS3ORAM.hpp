@@ -18,38 +18,20 @@ private:
 
     //local variable
     std::string CLIENT_ADDR;
-    TYPE_INDEX serverNo;
-    TYPE_INDEX others[NUM_SERVERS-1];
-    TYPE_DATA*** ownShares;     
-
+	
     //variables for retrieval
     zz_p** dot_product_vector;
-    unsigned char* select_buffer_in;
     TYPE_DATA* sumBlock;
     
-    //variables for eviction
-    TYPE_DATA** BUCKET_DATA;
-    zz_p*** evictMatrix;
-    zz_p** cross_product_vector;
-
-    //thread
-    int numThreads;
-    pthread_t* thread_compute;
-    pthread_t thread_recv[NUM_SERVERS-1];
-    pthread_t thread_send[NUM_SERVERS-1];
-    
     //socket 
-    unsigned char* evict_buffer_in;    
     unsigned char* block_buffer_in;
     unsigned char* block_buffer_out;
-    unsigned char* bucket_buffer; 
     
     unsigned char** shares_buffer_in;
     unsigned char** shares_buffer_out;
 
 public:
     ServerS3ORAM(); 
-    ServerS3ORAM(TYPE_INDEX serverNo, int selectedThreads); 
     ~ServerS3ORAM();
 
     int start();

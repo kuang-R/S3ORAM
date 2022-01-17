@@ -9,6 +9,7 @@
 #include "Utils.hpp"
 #include "S3ORAM.hpp"
 
+using namespace std;
 
 unsigned long int ClientS3ORAM::exp_logs[9];
 unsigned long int ClientS3ORAM::thread_max = 0;
@@ -18,13 +19,13 @@ ClientS3ORAM::ClientS3ORAM()
 {
 	this->pos_map = new vector<TYPE_INDEX>(NStore);
     
-	this->stash = new vector<TYPE_INDEX>(STASH);
+	this->stash = new vector<TYPE_DATA *>(STASH);
 	for (int i = 0; i < STASH; i++)
-		this->stash[i] = new DATA_TYPE[DATA_CHUNKS];
+		(*this->stash)[i] = new TYPE_DATA[DATA_CHUNKS];
 		
-	this->data_cache = new vector<TYPE_INDEX>(DATA_CACHE);
+	this->data_cache = new vector<TYPE_DATA *>(DATA_CACHE);
 	for (int i = 0; i < DATA_CACHE; i++)
-		this->data_cache = new DATA_TYPE[DATA_CHUNKS];
+		(*this->data_cache)[i] = new TYPE_DATA[DATA_CHUNKS];
     
     this->vector_buffer_out = new unsigned char*[NUM_SERVERS];
     for (TYPE_INDEX i = 0 ; i < NUM_SERVERS ; i++)
@@ -101,7 +102,7 @@ int ClientS3ORAM::init()
 		cout<< "	[init] File Cannot be Opened!!" <<endl;
 		exit(0);
 	}
-	fwrite(this->pos_map.data(), NStore, sizeof(TYPE_INDEX), local_data);
+	fwrite(this->pos_map->data(), NStore, sizeof(TYPE_INDEX), local_data);
 	fclose(local_data);
 	
     return 0;
@@ -119,49 +120,6 @@ int ClientS3ORAM::init()
  */ 
 int ClientS3ORAM::load()
 {
-	FILE* local_data = NULL;
-	if((local_data = fopen(clientTempPath.c_str(),"rb")) == NULL){
-		cout<< "	[load] File Cannot be Opened!!" <<endl;
-		exit(0);
-	}
-	
-	long lSize;
-	fseek (local_data , 0 , SEEK_END);
-	lSize = ftell (local_data);
-	rewind (local_data);
-	
-	unsigned char* local_data_buffer = new unsigned char[sizeof(char)*lSize];
-	if(fread(local_data_buffer ,1 , sizeof(char)*lSize, local_data) != sizeof(char)*lSize){
-		cout<< "	[load] File Cannot be Read!!" <<endl;
-		exit(0);
-	}
-	fclose(local_data);
-	
-	size_t currSize = 0;
-	memcpy(this->pos_map, &local_data_buffer[currSize], (NUM_BLOCK+1)*sizeof(TYPE_POS_MAP));
-	currSize += (NUM_BLOCK+1)*sizeof(TYPE_POS_MAP);
-	memcpy(&this->numEvict, &local_data_buffer[currSize], sizeof(this->numEvict));
-	cout << "[load] Eviction number: "<<numEvict << endl;
-	currSize += sizeof(this->numEvict);
-	memcpy(&this->numRead, &local_data_buffer[currSize], sizeof(this->numRead));
-	cout << "[load] Retrieval number: "<<numRead << endl;
-	
-	//scan position map to load bucket metaData (for speed optimization)
-    TYPE_INDEX fullPathIdx[H+1];
-    S3ORAM ORAM;
-    for(TYPE_INDEX i = 1 ; i < NUM_BLOCK+1; i++)
-    {
-        ORAM.getFullPathIdx(fullPathIdx,pos_map[i].pathID);
-        this->metaData[fullPathIdx[pos_map[i].pathIdx/ BUCKET_SIZE]][pos_map[i].pathIdx%BUCKET_SIZE] = i;
-    }
-    
-	std::ofstream output;
-	string path = clientLocalDir + "lastest_config";
-	output.open(path, std::ios_base::app);
-	output<< "SETUP FROM LOCAL DATA\n";
-	output.close();
-	
-	delete local_data_buffer;
 	
     return 0;
 }
@@ -176,8 +134,8 @@ int ClientS3ORAM::load()
  */  
 int ClientS3ORAM::sendORAMTree()
 {
-    unsigned char*  oram_buffer_out = new unsigned char [BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS]; 
-    memset(oram_buffer_out,0, BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS);
+    unsigned char*  block_buffer_out = new unsigned char [BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS]; 
+    memset(block_buffer_out,0, sizeof(TYPE_DATA)*DATA_CHUNKS);
     int CMD = CMD_SEND_ORAM_TREE;       
     unsigned char buffer_in[sizeof(CMD_SUCCESS)];
 	unsigned char buffer_out[sizeof(CMD)];
@@ -188,10 +146,9 @@ int ClientS3ORAM::sendORAMTree()
     zmq::socket_t socket(context,ZMQ_REQ);
 
     struct_socket thread_args[NUM_SERVERS];
-    for (int i = 0; i < NUM_SERVERS; i++)
     {
 //        string ADDR = SERVER_ADDR[i]+ ":" + SERVER_PORT[i*NUM_SERVERS+i]; 
-		string ADDR = SERVER_ADDR[i]+ ":" + std::to_string(SERVER_PORT+i*NUM_SERVERS+i); 
+		string ADDR = SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT+0*NUM_SERVERS+0); 
 		cout<< "	[sendORAMTree] Connecting to " << ADDR <<endl;
         socket.connect( ADDR.c_str());
             
@@ -199,29 +156,26 @@ int ClientS3ORAM::sendORAMTree()
 		cout<< "	[sendORAMTree] Command SENT! " << CMD <<endl;
         socket.recv(buffer_in, sizeof(CMD_SUCCESS));
 		
-        for(TYPE_INDEX j = 0 ; j < NUM_NODES; j++)
+		FILE* fdata = NULL;
+		string path = clientDataDir + to_string(0);
+		if((fdata = fopen(path.c_str(),"rb")) == NULL)
+		{
+			cout<< "	[sendORAMTree] File Cannot be Opened!!" <<endl;
+			exit(0);
+		}
+        for(TYPE_INDEX j = 0 ; j < NStore; j++)
         {
             //load data to buffer
-            FILE* fdata = NULL;
-            string path = rootPath + to_string(i) + "/" + to_string(j);
-            if((fdata = fopen(path.c_str(),"rb")) == NULL)
-            {
-                cout<< "	[sendORAMTree] File Cannot be Opened!!" <<endl;
-                exit(0);
-            }
-            long lSize;
-            fseek (fdata , 0 , SEEK_END);
-            lSize = ftell (fdata);
-            rewind (fdata);
-            if(fread(oram_buffer_out ,1 , BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS, fdata) != sizeof(char)*lSize){
+            if(fread(block_buffer_out ,1 , sizeof(TYPE_DATA)*DATA_CHUNKS, fdata) != sizeof(TYPE_DATA)*DATA_CHUNKS){
                 cout<< "	[sendORAMTree] File loading error be Read!!" <<endl;
                 exit(0);
             }
-            fclose(fdata);
-            //send to server i
-            socket.send(oram_buffer_out,BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS,0);
-            socket.recv(buffer_in,sizeof(CMD_SUCCESS));
+            //send to server 
+            socket.send(block_buffer_out, sizeof(TYPE_DATA)*DATA_CHUNKS, 0);
+			socket.recv(buffer_in,sizeof(CMD_SUCCESS));
         }
+		
+		fclose(fdata);
         socket.disconnect(ADDR.c_str());
     }
     socket.close();	
@@ -242,245 +196,6 @@ int ClientS3ORAM::sendORAMTree()
  */  
 int ClientS3ORAM::access(TYPE_ID blockID)
 {
-    S3ORAM ORAM;
-	cout << "================================================================" << endl;
-	cout << "STARTING ACCESS OPERATION FOR BLOCK-" << blockID <<endl; 
-	cout << "================================================================" << endl;
-	
-    // 1. get the path & index of the block of interest
-    TYPE_INDEX pathID = pos_map[blockID].pathID;
-	cout << "	[ClientS3ORAM] PathID = " << pathID <<endl;
-    cout << "	[ClientS3ORAM] Location = " << 	pos_map[blockID].pathIdx <<endl;
-    
-    // 2. create select query
-	TYPE_DATA logicVector[(H+1)*BUCKET_SIZE];
-	
-	auto start = time_now;
-    auto end = time_now;
-	
-	start = time_now;
-	getLogicalVector(logicVector, blockID);
-	end = time_now;
-	cout<< "	[ClientS3ORAM] Logical Vector Created in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-    exp_logs[0] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	
-	// 3. create query shares
-	#if defined (PRECOMP_MODE) 
-		start = time_now;
-		for (TYPE_INDEX i = 0; i < (H+1)*BUCKET_SIZE; i++)
-		{
-			if (logicVector[i] == 0){
-				for (int j = 0; j < NUM_SERVERS; j++){
-					this->sharedVector[j][i] = this->precompZeros[j][0];
-				}
-			}
-			else{
-				for (int j = 0; j < NUM_SERVERS; j++){
-					this->sharedVector[j][i] = this->precompOnes[j][0];
-				}
-			}
-		}
-		end = time_now;
-		cout<< "	[ClientS3ORAM] Shared Vector Created in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-		exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	#else //defined (PRECOMP_MODE) ================================================================================================
-		start = time_now;
-		ORAM.getSharedVector(logicVector, this->sharedVector);
-		end = time_now;
-		cout<< "	[ClientS3ORAM] Shared Vector Created in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-		exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	#endif //defined (PRECOMP_MODE) ================================================================================================
-	
-    
-    
-	// 4. send to server & receive the answer
-    struct_socket thread_args[NUM_SERVERS];
-    
-    start = time_now;
-    for (int i = 0; i < NUM_SERVERS; i++)
-    {
-        memcpy(&vector_buffer_out[i][0], &pathID, sizeof(pathID));
-        memcpy(&vector_buffer_out[i][sizeof(pathID)], &this->sharedVector[i][0], (H+1)*BUCKET_SIZE*sizeof(TYPE_DATA));
-        
-//        thread_args[i] = struct_socket(SERVER_ADDR[i]+ ":" + SERVER_PORT[i*NUM_SERVERS+i], vector_buffer_out[i], sizeof(pathID)+(H+1)*BUCKET_SIZE*sizeof(TYPE_DATA), blocks_buffer_in[i], sizeof(TYPE_DATA)*DATA_CHUNKS,CMD_REQUEST_BLOCK,NULL);
-		thread_args[i] = struct_socket(SERVER_ADDR[i]+ ":" + std::to_string(SERVER_PORT+i*NUM_SERVERS+i), vector_buffer_out[i], sizeof(pathID)+(H+1)*BUCKET_SIZE*sizeof(TYPE_DATA), blocks_buffer_in[i], sizeof(TYPE_DATA)*DATA_CHUNKS,CMD_REQUEST_BLOCK,NULL);
-
-		pthread_create(&thread_sockets[i], NULL, &ClientS3ORAM::thread_socket_func, (void*)&thread_args[i]);
-    }
-    
-    
-    memset(recoveredBlock,0,sizeof(TYPE_DATA)*DATA_CHUNKS);
-    for(int i = 0 ; i < NUM_SERVERS; i++)
-    {
-        memset(retrievedShare[i],0,sizeof(TYPE_DATA)*DATA_CHUNKS);
-    }
-    
-    for (int i = 0; i < NUM_SERVERS; i++)
-    {
-        pthread_join(thread_sockets[i], NULL);
-        memcpy(retrievedShare[i],blocks_buffer_in[i],sizeof(TYPE_DATA)*DATA_CHUNKS);
-        cout << "	[ClientS3ORAM] From Server-" << i+1 << " => BlockID = " << retrievedShare[i][0]<< endl;
-    }
-    end = time_now;
-    cout<< "	[ClientS3ORAM] All Shares Retrieved in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-    exp_logs[2] = thread_max;
-    thread_max = 0;
-	
-    // 5. recover the block
-	start = time_now;
-	ORAM.simpleRecover(retrievedShare, recoveredBlock);
-	end = time_now;
-	cout<< "	[ClientS3ORAM] Recovery Done in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-	exp_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	
-    
-    cout << "	[ClientS3ORAM] Block-" << recoveredBlock[0] <<" is Retrieved" <<endl;
-    if (recoveredBlock[0] == blockID)
-        cout << "	[ClientS3ORAM] SUCCESS!!!!!!" << endl;
-    else
-        cout << "	[ClientS3ORAM] ERROR!!!!!!!!" << endl;
-		
-    assert(recoveredBlock[0] == blockID && "ERROR: RECEIEVED BLOCK IS NOT CORRECT!!!!!!");
-	
-    
-    // 6. update position map
-    
-    TYPE_INDEX fullPathIdx[H+1];
-    ORAM.getFullPathIdx(fullPathIdx,pathID);
-    this->metaData[fullPathIdx[pos_map[blockID].pathIdx / BUCKET_SIZE ]][pos_map[blockID].pathIdx % BUCKET_SIZE] = 0;
-    
-    // 6.1. assign to random path
-    pos_map[blockID].pathID = Utils::RandBound(N_leaf)+(N_leaf-1);
-    pos_map[blockID].pathIdx = numRead;
-    this->metaData[0][numRead] = blockID;
-    
-    
-    // 7. create new shares for the retrived block, 
-    TYPE_DATA chunkShares[NUM_SERVERS];
-    
-    for(int u = 0 ; u < DATA_CHUNKS; u++ )
-    {
-        ORAM.createShares(recoveredBlock[u], chunkShares);
-        
-        for(int k = 0; k < NUM_SERVERS; k++) 
-        {
-                memcpy(&block_buffer_out[k][u*sizeof(TYPE_DATA)], &chunkShares[k], sizeof(TYPE_DATA));
-        }
-    }
-    for ( int k = 0 ; k < NUM_SERVERS; k++)
-    {
-        memcpy(&block_buffer_out[k][DATA_CHUNKS*sizeof(TYPE_DATA)], &numRead, sizeof(TYPE_DATA));
-    }
-	// 8. upload the share to numRead-th slot in root bucket
-    for(TYPE_INDEX k = 0; k < NUM_SERVERS; k++) 
-    {
-//		thread_args[k] = struct_socket(SERVER_ADDR[k]+ ":" + SERVER_PORT[k*NUM_SERVERS+k], block_buffer_out[k], sizeof(TYPE_DATA)*DATA_CHUNKS+sizeof(TYPE_INDEX), NULL, 0, CMD_SEND_BLOCK,NULL);
-		thread_args[k] = struct_socket(SERVER_ADDR[k]+ ":" + std::to_string(SERVER_PORT+k*NUM_SERVERS+k), block_buffer_out[k], sizeof(TYPE_DATA)*DATA_CHUNKS+sizeof(TYPE_INDEX), NULL, 0, CMD_SEND_BLOCK,NULL);
-
-		pthread_create(&thread_sockets[k], NULL, &ClientS3ORAM::thread_socket_func, (void*)&thread_args[k]);
-    }
-    
-	this->numRead = (this->numRead+1)%EVICT_RATE;
-    cout << "	[ClientS3ORAM] Number of Read = " << this->numRead <<endl;
-    
-    for (int i = 0; i < NUM_SERVERS; i++)
-    {
-        pthread_join(thread_sockets[i], NULL);
-        cout << "	[ClientS3ORAM] Block upload completed!" << endl;
-    }
-    
-	cout << "================================================================" << endl;
-	cout << "ACCESS OPERATION FOR BLOCK-" << blockID << " COMPLETED." << endl; 
-	cout << "================================================================" << endl;
-	
-    // 9. Perform eviction
-    if(this->numRead == 0)
-    {
-        
-        cout << "================================================================" << endl;
-		cout << "STARTING EVICTION-" << this->numEvict+1 <<endl;
-		cout << "================================================================" << endl;
-        
-        // 9.1. create permutation matrices
-		for(TYPE_INDEX i = 0 ; i < H+1; i++)
-        {
-			memset(this->evictMatrix[i], 0, evictMatSize*sizeof(TYPE_DATA));
-		}
-
-		start = time_now;
-        this->getEvictMatrix(this->evictMatrix,numEvict);
-		end = time_now;
-		cout<< "	[ClientS3ORAM] Evict Matrix Created in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-		exp_logs[5] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-		
-		
-		// 9.2. create shares of  permutation matrices 
-		cout<< "	[ClientS3ORAM] Sharing Evict Matrix..." << endl;
-		
-		boost::progress_display show_progress((H+1)*evictMatSize);
-        TYPE_DATA matrixShares[NUM_SERVERS];
-        start = time_now;
-        for (TYPE_INDEX i = 0; i < H+1; ++i) 
-        {
-            for (TYPE_INDEX j = 0; j < evictMatSize; ++j)
-            {
-                ORAM.createShares(this->evictMatrix[i][j], matrixShares);
-                for (int k = 0; k < NUM_SERVERS; k++) 
-                {   
-                    this->sharedMatrix[k][i][j] = matrixShares[k];
-                }
-				++show_progress;
-            }
-        }
-        end = time_now;
-        cout<< "	[ClientS3ORAM] Shared Matrix Created in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-        exp_logs[6] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-        
-        // 9.3. send permutation matrices to servers
-        start = time_now;
-        for (int i = 0; i < NUM_SERVERS; i++)
-        {
-            for (TYPE_INDEX y = 0 ; y < H+1; y++)
-            {
-                memcpy(&evict_buffer_out[i][y*evictMatSize*sizeof(TYPE_DATA)], &this->sharedMatrix[i][y][0], evictMatSize*sizeof(TYPE_DATA));
-            }
-            memcpy(&evict_buffer_out[i][(H+1)*evictMatSize*sizeof(TYPE_DATA)], &numEvict, sizeof(TYPE_INDEX));
-            
-			thread_args[i] = struct_socket(SERVER_ADDR[i]+ ":" + std::to_string(SERVER_PORT+i*NUM_SERVERS+i), evict_buffer_out[i], (H+1)*evictMatSize*sizeof(TYPE_DATA) + sizeof(TYPE_INDEX), NULL,0, CMD_SEND_EVICT,  NULL);
-//            thread_args[i] = struct_socket(SERVER_ADDR[i]+ ":" + SERVER_PORT[i*NUM_SERVERS+i], evict_buffer_out[i], (H+1)*evictMatSize*sizeof(TYPE_DATA) + sizeof(TYPE_INDEX), NULL,0, CMD_SEND_EVICT,  NULL);
-            pthread_create(&thread_sockets[i], NULL, &ClientS3ORAM::thread_socket_func, (void*)&thread_args[i]);
-        }
-			
-        for (int i = 0; i < NUM_SERVERS; i++)
-        {
-            pthread_join(thread_sockets[i], NULL);
-        }
-        end = time_now;
-        cout<< "	[ClientS3ORAM] Eviction DONE in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-        
-        exp_logs[8] = thread_max;
-        thread_max = 0;
-		
-		cout << "================================================================" << endl;
-		cout << "EVICTION-" << this->numEvict+1 << " COMPLETED" << endl;
-		cout << "================================================================" << endl;
-        
-        this->numEvict = (numEvict+1) % N_leaf;
-    }
-    // 11. store local info to disk
-	FILE* local_data = NULL;
-	if((local_data = fopen(clientTempPath.c_str(),"wb+")) == NULL){
-		cout<< "	[ClientS3ORAM] File Cannot be Opened!!" <<endl;
-		exit(0);
-	}
-	fwrite(this->pos_map, 1, (NUM_BLOCK+1)*sizeof(TYPE_POS_MAP), local_data);
-	fwrite(&this->numEvict, sizeof(this->numEvict), 1, local_data);
-	fwrite(&this->numRead, sizeof(this->numRead), 1, local_data);
-	fclose(local_data);
-     
-	// 12. write log
-	Utils::write_list_to_file(to_string(HEIGHT)+"_" + to_string(BLOCK_SIZE)+"_client_" + timestamp + ".txt",logDir, exp_logs, 9);
-	memset(exp_logs, 0, sizeof(unsigned long int)*9);
 	
 	return 0;
 }
@@ -498,9 +213,7 @@ int ClientS3ORAM::access(TYPE_ID blockID)
  */  
 int ClientS3ORAM::getLogicalVector(TYPE_DATA* logicalVector, TYPE_ID blockID)
 {
-	TYPE_INDEX loc = pos_map[blockID].pathIdx;
-	memset (logicalVector,0,sizeof(TYPE_DATA)*(H+1)*BUCKET_SIZE);
-    logicalVector[loc] = 1;
+	
 	
 	return 0;
 }
@@ -518,113 +231,7 @@ int ClientS3ORAM::getLogicalVector(TYPE_DATA* logicalVector, TYPE_ID blockID)
  */  
 int ClientS3ORAM::getEvictMatrix(TYPE_DATA** evictMatrix, TYPE_INDEX n_evict)
 {
-	S3ORAM ORAM;
-    TYPE_INDEX* src_idx = new TYPE_INDEX[H];
-    TYPE_INDEX* dest_idx = new TYPE_INDEX[H];
-    TYPE_INDEX* sibl_idx = new TYPE_INDEX[H];
-    
-    string evict_str = ORAM.getEvictString( n_evict);
-    
-    ORAM.getEvictIdx(src_idx,dest_idx,sibl_idx,evict_str);
-	cout<< "	[ClientS3ORAM] Creating Evict Matrix..." << endl;
-	boost::progress_display show_progress(H);
 	
-    for(int h = 1 ; h  < H+1; h++)
-    {
-        //for all real blocks in destination bucket, keep it as is
-        TYPE_INDEX curDest_idx = dest_idx[h-1];
-        TYPE_INDEX curSrc_idx = src_idx[h-1];
-        TYPE_INDEX curSibl_idx = sibl_idx[h-1];
-        vector<TYPE_ID> lstEmptyIdx;
-        vector<TYPE_ID> lstEmptyIdxSibl; //only used when h =H 
-        if( h == H) // this is for sibling bucket at leaf level
-        {
-            
-            for ( int ii = 0 ; ii < BUCKET_SIZE ; ii++)
-            {
-                if(metaData[curSibl_idx][ii]!=0)
-                {
-                    TYPE_ID blockID = metaData[curSibl_idx][ii];
-                    TYPE_INDEX j = pos_map[blockID].pathIdx;
-                    evictMatrix[h][ (j-BUCKET_SIZE*h)*BUCKET_SIZE*2 + (j-BUCKET_SIZE*(h-1) )  ] = 1; 
-                }
-                else
-                {
-                    lstEmptyIdxSibl.push_back(ii);
-                }   
-            }
-        }
-        else 
-        {
-            for(int ii = 0 ; ii < BUCKET_SIZE; ii++)
-            {
-                metaData[curSibl_idx][ii]=0;
-            }
-        }
-        for ( int ii = 0 ; ii < BUCKET_SIZE ; ii++)
-        {
-            if(metaData[curDest_idx][ii]!=0)
-            {
-                TYPE_ID blockID = metaData[curDest_idx][ii];
-                TYPE_INDEX j = pos_map[blockID].pathIdx;
-                evictMatrix[h-1][ (j-BUCKET_SIZE*h)*BUCKET_SIZE*2 + (j-BUCKET_SIZE*(h-1) )  ] = 1; 
-            }
-            else
-            {
-                lstEmptyIdx.push_back(ii);
-            }   
-        }
-        for(int ii = 0 ; ii< BUCKET_SIZE ; ii++)
-        {
-            if(metaData[curSrc_idx][ii]!=0)
-            {
-                TYPE_ID blockID = metaData[curSrc_idx][ii];
-                metaData[curSrc_idx][ii]=0;
-                    
-                TYPE_INDEX j = pos_map[blockID].pathIdx;
-                TYPE_INDEX s = pos_map[blockID].pathID;
-                TYPE_INDEX fullPath[H+1];
-                ORAM.getFullPathIdx(fullPath,s);
-                if( fullPath[h] == curDest_idx)
-                {
-                    if(lstEmptyIdx.size()==0)
-                    {
-                        cout<< "	[ClientS3ORAM] Overflow!!!!. Please check the random generator or select smaller evict_rate"<<endl;
-                        exit(0);
-                    }
-                    int emptyIdx = lstEmptyIdx[lstEmptyIdx.size()-1];
-                    lstEmptyIdx.pop_back();
-                    evictMatrix[h-1][ (emptyIdx)*BUCKET_SIZE*2 + (  j - BUCKET_SIZE*(h-1) ) ] = 1;     
-                    pos_map[blockID].pathIdx = BUCKET_SIZE*h + emptyIdx;
-                    metaData[curDest_idx][emptyIdx] = blockID;
-                }
-                else
-                {
-                    if(h<H)
-                    {
-                        pos_map[blockID].pathIdx= BUCKET_SIZE + j;
-                        metaData[curSibl_idx][j%BUCKET_SIZE]=blockID;
-                    }
-                    else
-                    {
-                        if(lstEmptyIdxSibl.size()==0)
-                        {
-                            cout<< "	[ClientS3ORAM] Overflow!!!, Please check the random generator or select smaller evict_rate"<<endl;
-                            exit(0);
-                        }
-                        int emptyIdx = lstEmptyIdxSibl[lstEmptyIdxSibl.size()-1];
-                        lstEmptyIdxSibl.pop_back();
-                        evictMatrix[H][ (emptyIdx)*BUCKET_SIZE*2 + (  j - BUCKET_SIZE*(h-1) ) ] = 1;     
-                        pos_map[blockID].pathIdx = BUCKET_SIZE*h + emptyIdx;
-                        metaData[curSibl_idx][emptyIdx] = blockID;
-                        
-                    }
-                }
-            }
-        }
-		++show_progress;
-    }
-    
 	return 0;
 }
  

@@ -13,6 +13,7 @@ unsigned int nthreads = std::thread::hardware_concurrency();
 
 int main(int argc, char **argv)
 {    
+	srand((unsigned)time(NULL));
     
     string mkdir_cmd = "mkdir -p ";
     string mkdir_localState = mkdir_cmd + clientLocalDir;
@@ -40,21 +41,9 @@ int main(int argc, char **argv)
 	
 	if(choice == 2)
 	{
-		int serverNo;
-        int selectedThreads;
-		cout << "Enter the Server No (1-"<< NUM_SERVERS <<"):";
-		cin >> serverNo;
-		cin.clear();
-		cout << endl;
         
-        do
-        {
-            cout<< "How many computation threads to use? (1-"<<nthreads<<"): ";
-            cin>>selectedThreads;
-		}while(selectedThreads>nthreads);
-        
-		ServerS3ORAM*  server = new ServerS3ORAM(serverNo-1,selectedThreads);
-		server->start();
+		ServerS3ORAM*  server = new ServerS3ORAM();
+		server->start(); 
 	}
 	else if (choice == 1)
 	{
@@ -69,7 +58,7 @@ int main(int argc, char **argv)
         cout<<endl;
         if(subOpt==1)
         {
-            client->load();
+            //client->load();
         }
         else
         {
@@ -113,26 +102,25 @@ int main(int argc, char **argv)
 				cout << "[main] Sequential Access for " << j << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
 				
-				client->access(j);
+				//client->access(j);
 				cout << "=================================================================" << endl;
 				cout << "[main] Sequential Access for " << j << " IS COMPLETED!" <<endl;
 				cout << "=================================================================" << endl;
-				if(j % (EVICT_RATE) == 0)
+				
+				cout << endl;
+				do
 				{
-					cout << endl;
-					do
-					{
-						cout << "DO YOU WANT TO CONTINUE? (y/n)";
-						cin >> response;
-						response = tolower(response);
-					}
-					while( !cin.fail() && response!='y' && response!='n' );
-					
-					if (response == 'n')
-					{
-						goto beginning;
-					}
+					cout << "DO YOU WANT TO CONTINUE? (y/n)";
+					cin >> response;
+					response = tolower(response);
 				}
+				while( !cin.fail() && response!='y' && response!='n' );
+					
+				if (response == 'n')
+				{
+					goto beginning;
+				}
+				
 			}
 		}
 		else if(choice == 2)
@@ -150,7 +138,7 @@ int main(int argc, char **argv)
 				cout << "=================================================================" << endl;
 				
 				
-				client->access(random_access);
+				//client->access(random_access);
 				
 				cout << "=================================================================" << endl;
 				cout << "[main] Random Access for " << random_access << " IS COMPLETED!" <<endl;

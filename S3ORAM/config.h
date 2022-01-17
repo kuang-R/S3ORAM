@@ -41,10 +41,10 @@ static inline std::string to_string(T value)
 #define BLOCK_SIZE 128
 #define STASH 3
 #define DATA_CACHE 2
-
+#define EVICT_RATE 280
 #define HEIGHT 4
 #define BUCKET_SIZE 333
-
+static const unsigned long long P = 1073742353; //prime field - should have length equal to the defined TYPE_DATA
 const int H = HEIGHT; 
 typedef unsigned long long TYPE_DATA;
 
@@ -53,10 +53,10 @@ typedef unsigned long long TYPE_DATA;
 //#define PRECOMP_MODE //for shares of *0* and *1* precomputation
 //============================================================================
 
-
+#define NUM_SERVERS 7
 //=== SECRET SHARING PARAMETER================================================
 #define PRIVACY_LEVEL 3
-
+const long long int vandermonde[NUM_SERVERS] = {7, -21+P, 35, -35+P, 21, -7+P, 1};
 /** Vandermonde Values for Different Number of Servers (7, 5, 3)*/
 //{7, -21+P, 35, -35+P, 21, -7+P, 1};//{5, -10+P, 10, -5+P, 1};//{3, -3+P, 1};
 //============================================================================
