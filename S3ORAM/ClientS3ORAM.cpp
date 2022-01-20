@@ -120,7 +120,37 @@ int ClientS3ORAM::init()
  */ 
 int ClientS3ORAM::load()
 {
+	FILE* local_data = NULL;
+	if((local_data = fopen(clientTempPath.c_str(),"rb")) == NULL){
+		cout<< "	[load] File Cannot be Opened!!" <<endl;
+		exit(0);
+	}
 	
+	long lSize;
+	fseek (local_data , 0 , SEEK_END);
+	lSize = ftell (local_data);
+	rewind (local_data);
+	
+	if (sizeof(char)*lSize != NStore*sizeof(TYPE_INDEX)){
+		cout<< "	[load] the size of file is wrong!!" <<endl;
+		exit(0);
+	}
+	unsigned char* local_data_buffer = new unsigned char[sizeof(char)*lSize];
+	if(fread(local_data_buffer ,1 , sizeof(char)*lSize, local_data) != sizeof(char)*lSize){
+		cout<< "	[load] File Cannot be Read!!" <<endl;
+		exit(0);
+	}
+	fclose(local_data);
+	
+	memcpy(this->pos_map, local_data_buffer, NStore*sizeof(TYPE_INDEX));
+	
+	std::ofstream output;
+	string path = clientLocalDir + "lastest_config";
+	output.open(path, std::ios_base::app);
+	output<< "SETUP FROM LOCAL DATA\n";
+	output.close();
+	
+	delete local_data_buffer;
     return 0;
 }
 
