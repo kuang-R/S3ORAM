@@ -45,12 +45,12 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
     boost::progress_display show_progress2(NStore);
     
     //initialize the position map
-    for(TYPE_ID i = 0; i < NStore;i++)
+    for(TYPE_ID i = 0; i < (*pos_map).size() ;i++)
     {
         (*pos_map)[i] = i;
     }
     //random permutation using built-in function
-    std::random_shuffle ( pos_map->begin(), pos_map->end());
+    std::random_shuffle ( pos_map->begin(), pos_map->end()-DATA_CACHE);
     
     //generate and write random blocks
 	TYPE_DATA *block = new TYPE_DATA[DATA_CHUNKS];

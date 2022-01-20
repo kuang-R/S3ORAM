@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         cout<<endl;
         if(subOpt==1)
         {
-            //client->load();
+            client->load();
         }
         else
         {
@@ -91,20 +91,20 @@ int main(int argc, char **argv)
 		
 		if(choice == 1)
 		{
-			cout << "START FROM?(1-" << NUM_BLOCK << ")";
+			cout << "START FROM?(1-" << NStore << ")";
 			cin >> start;
 			cout << endl;
 			//Sequential Access
-			for(int j = start; j <= NUM_BLOCK; j++)
+			for(int j = start - 1; j < NStore ; j++)
 			{
 				cout << endl;
 				cout << "=================================================================" << endl;
-				cout << "[main] Sequential Access for " << j << " IS STARTING!" <<endl;
+				cout << "[main] Sequential Access for " << j+1 << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
 				
-				//client->access(j);
+				client->access(j);
 				cout << "=================================================================" << endl;
-				cout << "[main] Sequential Access for " << j << " IS COMPLETED!" <<endl;
+				cout << "[main] Sequential Access for " << j+1 << " IS COMPLETED!" <<endl;
 				cout << "=================================================================" << endl;
 				
 				cout << endl;

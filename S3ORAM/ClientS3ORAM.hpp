@@ -23,9 +23,9 @@ private:
 	vector<TYPE_DATA *> *data_cache;
     
     
-    unsigned char** vector_buffer_out;	
-    unsigned char** block_buffer_out; 
-    unsigned char** blocks_buffer_in;
+    unsigned char* stash_index_buffer_out;	
+    unsigned char* stash_buffer_out; 
+    unsigned char* stash_buffer_in;
 
 public:
     ClientS3ORAM();
@@ -34,7 +34,7 @@ public:
     //main functions
     int init();
     int load();
-    int access(TYPE_ID blockID);
+    int access(TYPE_INDEX blockID);
     int sendORAMTree();
     
     //retrieval_vector

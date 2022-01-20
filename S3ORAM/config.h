@@ -44,6 +44,7 @@ static inline std::string to_string(T value)
 #define EVICT_RATE 280
 #define HEIGHT 4
 #define BUCKET_SIZE 333
+
 static const unsigned long long P = 1073742353; //prime field - should have length equal to the defined TYPE_DATA
 const int H = HEIGHT; 
 typedef unsigned long long TYPE_DATA;
@@ -113,7 +114,9 @@ typedef struct type_pos_map
 
 #define DATA_CHUNKS BLOCK_SIZE/sizeof(TYPE_DATA)
 const TYPE_INDEX N = (int)(pow(2, HEIGHT+1)-1) * BUCKET_SIZE;
-const TYPE_INDEX NStore =  (N / STASH + 1) * STASH;  
+const int STEP = N / STASH + 1;
+const TYPE_INDEX NStore =  STEP * STASH;  
+
 
 const TYPE_INDEX PRECOMP_SIZE = BUCKET_SIZE*(2*HEIGHT+1)*BUCKET_SIZE*(2*HEIGHT+1);
 const TYPE_INDEX N_leaf = pow(2,H);
