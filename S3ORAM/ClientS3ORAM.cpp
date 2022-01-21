@@ -30,7 +30,7 @@ ClientS3ORAM::ClientS3ORAM()
     this->stash_index_buffer_out = new unsigned char[sizeof(TYPE_INDEX)];
     
     this->stash_buffer_out = new unsigned char[STASH * DATA_CHUNKS * sizeof(TYPE_DATA)];
-	this->stash_buffer_in = new unsigned char[STAH * DATA_CHUNKS * sizeof(TYPE_DATA)];
+	this->stash_buffer_in = new unsigned char[STASH * DATA_CHUNKS * sizeof(TYPE_DATA)];
 	
 	time_t now = time(0);
 	char* dt = ctime(&now);
@@ -248,11 +248,21 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     }
     
     end = time_now;
-    cout<< "	[ClientS3ORAM] All Shares Retrieved in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
-    exp_logs[2] = thread_max;
-    thread_max = 0;
+    cout<< "	[ClientJumpORAM] All Blocks in Stash Retrieved in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
+
 	
-    // 5. recover the block
+    // 4. Read the block client wants and swap it with the block in data cache randomly
+	if (physicalID < NStore){
+		
+	}else{
+		TYPE_INDEX real_block_index_stash = physicalID / STEP;
+		TYPE_INDEX block_index_cache = rand() % DATA_CACHE;
+		TYPE_DATA *temp_mem = new TYPE_DATA[DATA_CHUNKS];
+		memcpy((void *)temp_mem, (void *)(stash_buffer_in + real_block_index_stash * BLOCK_SIZE), BLOCK_SIZE);
+		memcpy((void *)(stash_buffer_in + real_block_index_stash * BLOCK_SIZE), (void *)(*data_cache)[block_index_cache], BLOCK_SIZE);
+		memcpy((void *)(*data_cache)[block_index_cache], (void*)temp_mem, BLOCK_SIZE);
+	}
+ 
 	start = time_now;
 	ORAM.simpleRecover(retrievedShare, recoveredBlock);
 	end = time_now;
