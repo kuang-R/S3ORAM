@@ -131,14 +131,14 @@ int main(int argc, char **argv)
 
 			for(int j = 1 ; j <= access; j++)
 			{
-				random_access = rand() % NUM_BLOCK + 1; 
+				random_access = rand() % NStore; 
 				cout << endl;
 				cout << "=================================================================" << endl;
 				cout << "[main] Random Access for " << random_access << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
 				
 				
-				//client->access(random_access);
+				client->access(random_access);
 				
 				cout << "=================================================================" << endl;
 				cout << "[main] Random Access for " << random_access << " IS COMPLETED!" <<endl;
