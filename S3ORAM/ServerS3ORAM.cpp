@@ -193,73 +193,17 @@ int ServerS3ORAM::retrieve(zmq::socket_t& socket)
     //use thread to load data from files
     start = time_now;
 	ServerS3ORAM::loadRetrievalData_func(subSetSequenceIdx, stash_buffer_out);
-	
-	
-    int endIdx;
-    THREAD_LOADDATA loadData_args[numThreads];
-    for(int i = 0, startIdx = 0; i < numThreads , startIdx < DATA_CHUNKS; i ++, startIdx+=step)
-    {
-        if(startIdx+step > DATA_CHUNKS)
-            endIdx = DATA_CHUNKS;
-        else
-            endIdx = startIdx+step;
-            
-        loadData_args[i] = THREAD_LOADDATA(this->serverNo, startIdx, endIdx, this->dot_product_vector, fullPathIdx,H+1);
-        pthread_create(&thread_compute[i], NULL, &ServerS3ORAM::thread_loadRetrievalData_func, (void*)&loadData_args[i]);
-        
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(i, &cpuset);
-        pthread_setaffinity_np(thread_compute[i], sizeof(cpu_set_t), &cpuset);
-    }
-    
-    for(int i = 0, startIdx = 0 ; i < numThreads , startIdx < DATA_CHUNKS; i ++, startIdx+=step)
-    {
-        pthread_join(thread_compute[i],NULL);
-    }
     end = time_now;
 	long load_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-    cout<< "	[SendBlock] Path Nodes READ from Disk in " << load_time << " ns"<<endl;
+    cout<< "	[SendBlock] subSet Sequence blocks READ from Disk in " << load_time << " ns"<<endl;
     server_logs[1] = load_time;
-
+    
     start = time_now;
-    //Multithread for dot product computation
-    THREAD_COMPUTATION dotProduct_args[numThreads];
-    endIdx = 0;
-    step = ceil((double)DATA_CHUNKS/(double)numThreads);
-    for(int i = 0, startIdx = 0 ; i < numThreads , startIdx < DATA_CHUNKS; i ++, startIdx+=step)
-    {
-        if(startIdx+step > DATA_CHUNKS)
-            endIdx = DATA_CHUNKS;
-        else
-            endIdx = startIdx+step;
-			
-        dotProduct_args[i] = THREAD_COMPUTATION( startIdx, endIdx, this->dot_product_vector, sharedVector, sumBlock);
-        pthread_create(&thread_compute[i], NULL, &ServerS3ORAM::thread_dotProduct_func, (void*)&dotProduct_args[i]);
-		
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(i, &cpuset);
-        pthread_setaffinity_np(thread_compute[i], sizeof(cpu_set_t), &cpuset);
-    }
-    
-    for(int i = 0, startIdx = 0 ; i < numThreads , startIdx < DATA_CHUNKS; i ++, startIdx+=step)
-    {
-        pthread_join(thread_compute[i],NULL);
-    }
-    
+    cout<< "	[SendBlock] Sending Block Stash with ID-" << stashIndex <<endl;
+    socket.send(stash_buffer_out,sizeof(TYPE_DATA)*DATA_CHUNKS*STASH);
     end = time_now;
-    cout<< "	[SendBlock] Block Share CALCULATED in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
+    cout<< "	[SendBlock] Stash SENT in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
     server_logs[2] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-
-    memcpy(block_buffer_out,sumBlock,sizeof(TYPE_DATA)*DATA_CHUNKS);
-    
-    start = time_now;
-    cout<< "	[SendBlock] Sending Block Share with ID-" << sumBlock[0] <<endl;
-    socket.send(block_buffer_out,sizeof(TYPE_DATA)*DATA_CHUNKS);
-    end = time_now;
-    cout<< "	[SendBlock] Block Share SENT in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
-    server_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     Utils::write_list_to_file(to_string(HEIGHT) + "_" + to_string(BLOCK_SIZE) + "_server" + to_string(0)+ "_" + timestamp + ".txt",logDir, server_logs, 13);
     ret = 0;
     return ret ;
