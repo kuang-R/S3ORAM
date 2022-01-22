@@ -22,12 +22,13 @@ private:
     //variables for retrieval
     zz_p** dot_product_vector;
     TYPE_DATA* sumBlock;
+	unsigned char* stashIndex_buffer_in;
     
     //socket 
     unsigned char* block_buffer_in;
     unsigned char* block_buffer_out;
     
-    unsigned char** shares_buffer_in;
+    unsigned char* stash_buffer_out;
     unsigned char** shares_buffer_out;
 
 public:
@@ -54,7 +55,7 @@ public:
     //thread functions
     static void* thread_crossProduct_func(void* args);
     static void* thread_socket_func(void* args);
-    static void* thread_loadRetrievalData_func(void* args);
+    static void* loadRetrievalData_func(TYPE_INDEX* sss, unsigned char* sbo);
     static void* thread_loadTripletData_func(void* args);
     
     static unsigned long int server_logs[13]; 

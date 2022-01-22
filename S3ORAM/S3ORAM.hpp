@@ -22,7 +22,7 @@ public:
     
 	string getEvictString(TYPE_ID n_evict);
 
-	int getFullPathIdx(TYPE_INDEX* fullPath, TYPE_INDEX pathID);
+	int subSetSequenceIdx(TYPE_INDEX* fullPath, TYPE_INDEX pathID);
 
     int createShares(TYPE_DATA input, TYPE_DATA* output);
 

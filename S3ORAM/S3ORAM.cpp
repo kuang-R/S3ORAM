@@ -147,15 +147,15 @@ string S3ORAM::getEvictString(TYPE_ID n_evict)
  * @param pathID: (input) The leaf ID based on the index of the bucket in ORAM tree.
  * @return 0 if successful
  */  
-int S3ORAM::getFullPathIdx(TYPE_INDEX* fullPath, TYPE_INDEX pathID)
+int S3ORAM::subSetSequenceIdx(TYPE_INDEX* subSetSequence, TYPE_INDEX stashIndex)
 {
-    TYPE_INDEX idx = pathID;
-    for (int i = H; i >= 0; i--)
-    {
-			fullPath[i] = idx;
-			idx = (idx-1) >> 1;
-    }
-	
+    TYPE_INDEX idx = stashIndex;
+	do{
+		*subSetSequence = idx;
+		subSetSequence++;
+		idx = (idx + STEP) % NStore;
+		
+	}while(idx != stashIndex)
 	return 0;
 }
 
