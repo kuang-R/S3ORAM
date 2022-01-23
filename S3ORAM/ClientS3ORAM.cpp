@@ -293,7 +293,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     cout<< "	[ClientJumpORAM] All Blocks in Stash has been sent to server in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
 	cout << "================================================================" << endl;
-	cout << "ACCESS OPERATION FOR BLOCK-" << blockID << " COMPLETED." << endl; 
+	cout << "ACCESS OPERATION FOR BLOCK-" << blockID + 1 << " COMPLETED." << endl; 
 	cout << "================================================================" << endl;
 	
     // 9. store local info to disk
