@@ -228,7 +228,14 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	
     // 1. get the physical address corresponding to the block of interest
     TYPE_INDEX physicalID = (*pos_map)[blockID];
-	cout << "	[ClientS3ORAM] PhysicalID = " << physicalID <<endl;
+	if(physicalID < NStore){
+		cout << "	[ClientS3ORAM] PhysicalID in Server = " << physicalID <<endl;
+		exp_logs[0] = 0;
+	}else{
+		cout << "	[ClientS3ORAM] PhysicalID in Data Cache = " << physicalID <<endl;
+		exp_logs[0] = 1;
+	}
+	
     
     // 2. create stash_index
 	TYPE_INDEX stash_index = 0;
@@ -252,7 +259,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     }
     
     end = time_now;
-	exp_logs[0] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     cout<< "	[ClientJumpORAM] All Blocks in Stash Retrieved in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
 
 	
@@ -290,7 +297,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), stash_buffer_in, STASH * DATA_CHUNKS * sizeof(TYPE_DATA), send_buffer_in, 0, CMD_SEND_BLOCK);
 	delete send_buffer_in;
 	end = time_now;
-	exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	exp_logs[2] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     cout<< "	[ClientJumpORAM] All Blocks in Stash has been sent to server in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
 	cout << "================================================================" << endl;
 	cout << "ACCESS OPERATION FOR BLOCK-" << blockID + 1 << " COMPLETED." << endl; 
