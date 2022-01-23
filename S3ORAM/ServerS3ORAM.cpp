@@ -150,7 +150,7 @@ int ServerS3ORAM::recvORAMTree(zmq::socket_t& socket)
     for(int i = 0 ; i < NStore; i++)
     {
         socket.recv(block_buffer_in, sizeof(TYPE_DATA)*DATA_CHUNKS, 0);
-        fwrite(block_buffer_in, 1, BUCKET_SIZE*sizeof(TYPE_DATA)*DATA_CHUNKS, file_out);
+        fwrite(block_buffer_in, 1, sizeof(TYPE_DATA)*DATA_CHUNKS, file_out);
 		socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS),0);
     }
 	fclose(file_out);
