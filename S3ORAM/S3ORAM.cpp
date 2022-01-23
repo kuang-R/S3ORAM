@@ -155,7 +155,7 @@ int S3ORAM::subSetSequenceIdx(TYPE_INDEX* subSetSequence, TYPE_INDEX stashIndex)
 		subSetSequence++;
 		idx = (idx + STEP) % NStore;
 		
-	}while(idx != stashIndex)
+	}while(idx != stashIndex);
 	return 0;
 }
 

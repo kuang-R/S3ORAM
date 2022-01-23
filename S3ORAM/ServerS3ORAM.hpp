@@ -27,9 +27,8 @@ private:
     //socket 
     unsigned char* block_buffer_in;
     unsigned char* block_buffer_out;
-    
     unsigned char* stash_buffer_out;
-    unsigned char** shares_buffer_out;
+    unsigned char* stash_buffer_in;
 
 public:
     ServerS3ORAM(); 

@@ -36,6 +36,7 @@ ServerS3ORAM::ServerS3ORAM()
 	this->block_buffer_out = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS];
 	this->stashIndex_buffer_in = new unsigned char[sizeof(TYPE_INDEX)];
 	this->stash_buffer_out = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS*STASH];
+	this->stash_buffer_in = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS*STASH];
 }
 
 ServerS3ORAM::~ServerS3ORAM()
@@ -101,7 +102,7 @@ int ServerS3ORAM::start()
             	cout << "=================================================================" << endl;
 				cout<< "[Server] Receiving Block Data..." <<endl;
 				cout << "=================================================================" << endl;
-				//this->recvBlock(socket);
+				this->recvBlock(socket);
 				cout << "=================================================================" << endl;
 				cout<< "[Server] Block Data RECEIVED!" <<endl;
 				cout << "=================================================================" << endl;
@@ -204,7 +205,6 @@ int ServerS3ORAM::retrieve(zmq::socket_t& socket)
     end = time_now;
     cout<< "	[SendBlock] Stash SENT in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
     server_logs[2] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-    Utils::write_list_to_file(to_string(HEIGHT) + "_" + to_string(BLOCK_SIZE) + "_server" + to_string(0)+ "_" + timestamp + ".txt",logDir, server_logs, 13);
     ret = 0;
     return ret ;
 }
@@ -221,18 +221,37 @@ int ServerS3ORAM::retrieve(zmq::socket_t& socket)
  */  
 int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
 {
-	cout<< "	[recvBlock] Receiving Block Data..." <<endl;
+	cout<< "	[recvBlock] Receiving Stash Index..." <<endl;
+	TYPE_INDEX stash_index;
 	auto start = time_now;
-	socket.recv(block_buffer_in, sizeof(TYPE_DATA)*DATA_CHUNKS+sizeof(TYPE_INDEX), 0);
+	socket.recv((unsigned char*)&stash_index, sizeof(TYPE_INDEX), 0);
 	auto end = time_now;
-    TYPE_INDEX slotIdx;
-    memcpy(&slotIdx,&block_buffer_in[sizeof(TYPE_DATA)*DATA_CHUNKS],sizeof(TYPE_INDEX));
+	cout<< "	[recvBlock] Stash Index RECV in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
+    server_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     
-	cout<< "	[recvBlock] Block Data RECV in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
-    server_logs[4] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-    
+	//send a Ok to client
+	socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
+	
+	//receive the other command named CMD_SEND_BLOCK
+	int CMD;
+	unsigned char buffer[sizeof(CMD)];
+	cout<< "[Server] Waiting for a Command..." <<endl;
+	socket.recv(buffer,sizeof(CMD));
+		
+	memcpy(&CMD, buffer, sizeof(CMD));
+	cout<< "[Server] Command RECEIVED!" <<endl;
+		
+	socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
+	
+	// update the blocks in server 
 	start = time_now;
-    // Update root bucket
+    socket.recv(stash_buffer_in, sizeof(TYPE_DATA)*DATA_CHUNKS*STASH, 0);
+	cout<< "[Server] Stash RECEIVED!" <<endl;
+	end = time_now;
+	cout<< "	[recvStash] Stash Receieved in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
+	server_logs[4] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	// store the stash into disk
+	start = time_now;
     FILE *file_update;
     string path = rootPath + to_string(0) + "/0";
     if((file_update = fopen(path.c_str(),"r+b")) == NULL)
@@ -240,21 +259,19 @@ int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
         cout<< "	[recvBlock] File Cannot be Opened!!" <<endl;
         exit(0);
     }
-    fseek(file_update, slotIdx*sizeof(TYPE_DATA),SEEK_SET);
-    for(int u = 0 ; u < DATA_CHUNKS; u++)
+    for(int u = 0 ; u < STASH; u++)
     {
-        fwrite(&block_buffer_in[u*sizeof(TYPE_DATA)],1,sizeof(TYPE_DATA),file_update);
-        fseek(file_update,(BUCKET_SIZE-1)*sizeof(TYPE_DATA),SEEK_CUR);
+		fseek(file_update, (stash_index + u*STEP)*BLOCK_SIZE, SEEK_SET);
+        fwrite(stash_buffer_in,DATA_CHUNKS ,sizeof(TYPE_DATA),file_update);
     }
     fclose(file_update);
-    
     end = time_now;
-	cout<< "	[recvBlock] Block STORED in Disk in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
+	cout<< "[recvBlock] Stash STORED in Disk in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
 	server_logs[5] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
 	
     socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
-	cout<< "	[recvBlock] ACK is SENT!" <<endl;
-    
+	cout<< "	[recvStash] ACK is SENT!" <<endl;
+    Utils::write_list_to_file(to_string(HEIGHT) + "_" + to_string(BLOCK_SIZE) + "_server" + to_string(0)+ "_" + timestamp + ".txt",logDir, server_logs, 13);
     return 0;
 }
 

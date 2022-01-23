@@ -285,8 +285,10 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     
 	// 8. upload the share to numRead-th slot in root bucket
 	start = time_now;
-	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), (unsigned char *)&stash_index, sizeof(stash_index), nullptr, 0, CMD_SEND_BLOCK);
-	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), stash_buffer_in, STASH * DATA_CHUNKS * sizeof(TYPE_DATA),nullptr, 0, CMD_SEND_BLOCK);
+	unsigned char* send_buffer_in = new unsigned char[sizeof(CMD_SUCCESS)];
+	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), (unsigned char *)&stash_index, sizeof(stash_index), send_buffer_in, 0, CMD_SEND_BLOCK);
+	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), stash_buffer_in, STASH * DATA_CHUNKS * sizeof(TYPE_DATA), send_buffer_in, 0, CMD_SEND_BLOCK);
+	delete send_buffer_in;
 	end = time_now;
 	exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     cout<< "	[ClientJumpORAM] All Blocks in Stash has been sent to server in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<< " ns"<<endl;
