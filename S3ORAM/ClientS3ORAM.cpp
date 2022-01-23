@@ -8,7 +8,7 @@
 #include "ClientS3ORAM.hpp"
 #include "Utils.hpp"
 #include "S3ORAM.hpp"
-
+#include <algorithm>
 using namespace std;
 
 unsigned long int ClientS3ORAM::exp_logs[9];
@@ -25,8 +25,8 @@ ClientS3ORAM::ClientS3ORAM()
 	
 	this->data_cache = new vector<TYPE_DATA_CACHE>(DATA_CACHE);
 	for (int i = 0; i < DATA_CACHE; i++){
-		(*this->data_cache)[i].logicalID = 0;
-		Utils::fillRandom((void*)((*this->data_cache)[i].DATA), BLOCK_SIZE)
+		(*this->data_cache)[i].logicalID = -1;
+		Utils::fillRandom((void*)((*this->data_cache)[i].DATA), BLOCK_SIZE);
 	}
     
     this->stash_index_buffer_out = new unsigned char[sizeof(TYPE_INDEX)];
@@ -230,7 +230,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	
     // 1. get the physical address corresponding to the block of interest
     TYPE_INDEX physicalID = (*pos_map)[blockID];
-	if(physicalID < NStore){
+	if(physicalID != -1){
 		cout << "	[ClientS3ORAM] PhysicalID in Server = " << physicalID <<endl;
 		exp_logs[0] = 0;
 	}else{
@@ -241,7 +241,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     
     // 2. create stash_index
 	TYPE_INDEX stash_index = 0;
-	if (physicalID < NStore){
+	if (physicalID != -1){
 	    //  if the physical address is in server 
 		stash_index = physicalID % STEP;
 	} else {
@@ -268,13 +268,12 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     // 4. Read the block client wants and swap it with the block in data cache randomly
 	TYPE_INDEX real_block_index_stash = physicalID / STEP;
 	TYPE_INDEX block_index_cache = rand() % DATA_CACHE;
-	if (physicalID < NStore){
+	if (physicalID != -1){
 		TYPE_DATA *temp_mem = new TYPE_DATA[DATA_CHUNKS];
 		memcpy((void *)temp_mem, (void *)(stash_buffer_in + real_block_index_stash * BLOCK_SIZE), BLOCK_SIZE);
-		memcpy((void *)(stash_buffer_in + real_block_index_stash * BLOCK_SIZE), (void *)(*data_cache)[block_index_cache], BLOCK_SIZE);
-		memcpy((void *)(*data_cache)[block_index_cache], (void*)temp_mem, BLOCK_SIZE);
+		memcpy((void *)(stash_buffer_in + real_block_index_stash * BLOCK_SIZE), (void *)((*data_cache)[block_index_cache].DATA), BLOCK_SIZE);
+		memcpy((void *)((*data_cache)[block_index_cache].DATA), (void*)temp_mem, BLOCK_SIZE);
 		delete temp_mem;
-		
 	}else{
 		// do nothing 
 	}
@@ -282,13 +281,24 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	// rewrite operation without any encryption (this time modify it later)
 	
 	
-	
-    
+
     // 6. update position map
     
-    if (physicalID < NStore){
-		//update the information in position map 
-		std::swap((*pos_map)[blockID], (*pos_map)[NStore + block_index_cache]);
+    if (physicalID != -1){
+		//update the information in position map
+		TYPE_INDEX index_data_cache = (*data_cache)[block_index_cache].logicalID;
+		cout << "================================================================" << endl;
+		cout << "(*data_cache)[block_index_cache].logicalID-" << (*data_cache)[block_index_cache].logicalID <<endl; 
+		cout << "================================================================" << endl;
+		if(index_data_cache == -1){
+			//if the swapping block in data cache is dummy block
+			(*data_cache)[block_index_cache].logicalID = blockID;
+			(*pos_map)[blockID] = -1;
+		}else{
+			//if the swapping block in data cache is real block
+			(*data_cache)[block_index_cache].logicalID = blockID;
+			std::swap((*pos_map)[blockID], (*pos_map)[index_data_cache]);	
+		}
 	}
     
     
