@@ -12,7 +12,11 @@
 #include <pthread.h>
 #include "zmq.hpp"
 #include "struct_socket.h"
-
+struct TYPE_DATA_CACHE
+{
+	TYPE_INDEX logicalID;
+	TYPE_DATA DATA[DATA_CHUNKS]；
+};
 class ClientS3ORAM
 {
 private:
@@ -20,8 +24,8 @@ private:
 	vector<TYPE_INDEX> *pos_map;
 	
 	vector<TYPE_DATA *> *stash;
-	vector<TYPE_DATA *> *data_cache;
-    
+	vector<TYPE_DATA_CACHE> *data_cache;
+   
     
     unsigned char* stash_index_buffer_out;	
     unsigned char* stash_buffer_out; 
