@@ -17,15 +17,17 @@ char ClientS3ORAM::timestamp[16];
 
 ClientS3ORAM::ClientS3ORAM()
 {
-	this->pos_map = new vector<TYPE_INDEX>(NStore + DATA_CACHE);
+	this->pos_map = new vector<TYPE_INDEX>(NStore);
     
 	this->stash = new vector<TYPE_DATA *>(STASH);
 	for (int i = 0; i < STASH; i++)
 		(*this->stash)[i] = new TYPE_DATA[DATA_CHUNKS];
-		
-	this->data_cache = new vector<TYPE_DATA *>(DATA_CACHE);
-	for (int i = 0; i < DATA_CACHE; i++)
-		(*this->data_cache)[i] = new TYPE_DATA[DATA_CHUNKS];
+	
+	this->data_cache = new vector<TYPE_DATA_CACHE>(DATA_CACHE);
+	for (int i = 0; i < DATA_CACHE; i++){
+		(*this->data_cache)[i].logicalID = 0;
+		Utils::fillRandom((void*)((*this->data_cache)[i].DATA), BLOCK_SIZE)
+	}
     
     this->stash_index_buffer_out = new unsigned char[sizeof(TYPE_INDEX)];
     

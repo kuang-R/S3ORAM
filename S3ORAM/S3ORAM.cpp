@@ -50,7 +50,7 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
         (*pos_map)[i] = i;
     }
     //random permutation using built-in function
-    std::random_shuffle ( pos_map->begin(), pos_map->end()-DATA_CACHE);
+    std::random_shuffle ( pos_map->begin(), pos_map->end());
     
     //generate and write random blocks
 	TYPE_DATA *block = new TYPE_DATA[DATA_CHUNKS];
