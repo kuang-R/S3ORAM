@@ -73,19 +73,12 @@ ClientS3ORAM::~ClientS3ORAM()
  */
 int ClientS3ORAM::init()
 {
-
     auto start = time_now;
     auto end = time_now;
 
 	/* Build random database in disk */
-    start = time_now;
     S3ORAM ORAM;
-    ORAM.build(this->pos_map);
-    end = time_now;
-
-	cout<<endl;
-    cout<< "Elapsed Time for Setup on Disk: "<<std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()<<" ns"<<endl;
-    cout<<endl;
+    ORAM.build(this->pos_map, exp_logs);
 
     std::ofstream output;
     string path2 = clientLocalDir + "lastest_config";
@@ -118,6 +111,7 @@ int ClientS3ORAM::init()
  */
 int ClientS3ORAM::load()
 {
+	memset(exp_logs, 0, 9 * sizeof(unsigned long int));
 	FILE* local_data = NULL;
 	if((local_data = fopen(clientTempPath.c_str(),"rb")) == NULL){
 		cout<< "	[load] File Cannot be Opened!! " << __func__ <<endl;
@@ -187,38 +181,47 @@ int ClientS3ORAM::sendORAMTree()
     zmq::socket_t socket(context,ZMQ_REQ);
 
     struct_socket thread_args[NUM_SERVERS];
-    {
-//        string ADDR = SERVER_ADDR[i]+ ":" + SERVER_PORT[i*NUM_SERVERS+i];
-		string ADDR = SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT+0*NUM_SERVERS+0);
-		cout<< "	[sendORAMTree] Connecting to " << ADDR <<endl;
-        socket.connect( ADDR.c_str());
 
-        socket.send(buffer_out, sizeof(CMD));
-		cout<< "	[sendORAMTree] Command SENT! " << CMD <<endl;
-        socket.recv(buffer_in, sizeof(CMD_SUCCESS));
+	string ADDR = SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT+0*NUM_SERVERS+0);
+	cout<< "	[sendORAMTree] Connecting to " << ADDR <<endl;
+	socket.connect( ADDR.c_str());
 
-		FILE* fdata = NULL;
-		string path = clientDataDir + to_string(0);
-		if((fdata = fopen(path.c_str(),"rb")) == NULL)
-		{
-			cout<< "	[sendORAMTree] File Cannot be Opened!!" <<endl;
+	socket.send(buffer_out, sizeof(CMD));
+	cout<< "	[sendORAMTree] Command SENT! " << CMD <<endl;
+	socket.recv(buffer_in, sizeof(CMD_SUCCESS));
+
+	FILE* fdata = NULL;
+	string path = clientDataDir + to_string(0);
+	if((fdata = fopen(path.c_str(),"rb")) == NULL)
+	{
+		cout<< "	[sendORAMTree] File Cannot be Opened!!" <<endl;
+		exit(0);
+	}
+	auto start = time_now;
+	for(TYPE_INDEX j = 0 ; j < NStore; j++)
+	{
+		//load data to buffer
+		if(fread(block_buffer_out ,1 , sizeof(TYPE_DATA)*DATA_CHUNKS, fdata) != sizeof(TYPE_DATA)*DATA_CHUNKS){
+			cout<< "	[sendORAMTree] File loading error be Read!!" <<endl;
 			exit(0);
 		}
-        for(TYPE_INDEX j = 0 ; j < NStore; j++)
-        {
-            //load data to buffer
-            if(fread(block_buffer_out ,1 , sizeof(TYPE_DATA)*DATA_CHUNKS, fdata) != sizeof(TYPE_DATA)*DATA_CHUNKS){
-                cout<< "	[sendORAMTree] File loading error be Read!!" <<endl;
-                exit(0);
-            }
-            //send to server
-            socket.send(block_buffer_out, sizeof(TYPE_DATA)*DATA_CHUNKS, 0);
-			socket.recv(buffer_in,sizeof(CMD_SUCCESS));
-        }
+		//send to server
+		socket.send(block_buffer_out, sizeof(TYPE_DATA)*DATA_CHUNKS, 0);
+		socket.recv(buffer_in,sizeof(CMD_SUCCESS));
+	}
+	auto end = time_now;
 
-		fclose(fdata);
-        socket.disconnect(ADDR.c_str());
-    }
+	exp_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	cout<<endl;
+    cout<< "Elapsed Time for send database: "<< exp_logs[0] <<" ns"<<endl;
+    cout<<endl;
+
+
+	Utils::write_list_to_file(to_string(HEIGHT)+"_" + to_string(BLOCK_SIZE)+"_client_build_" + timestamp + ".txt",logDir, exp_logs, 9);
+
+	fclose(fdata);
+	socket.disconnect(ADDR.c_str());
+
     socket.close();
     return 0;
 }
@@ -241,12 +244,12 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	exp_logs[4] = blockID;
 	auto start_all = time_now;
 	auto end_all = time_now;
-	start_all = time_now;
 	S3ORAM ORAM;
 	cout << "================================================================" << endl;
 	cout << "STARTING ACCESS OPERATION FOR BLOCK-" << blockID + 1 <<endl;
 	cout << "================================================================" << endl;
 
+	start_all = time_now;
     // 1. get the physical address corresponding to the block of interest
     TYPE_INDEX physicalID = (*pos_map)[blockID];
 	if(physicalID != -1){
@@ -300,8 +303,6 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 
 	// rewrite operation without any encryption (this time modify it later)
 
-
-
     // 6. update position map
 
     if (physicalID != -1){
@@ -325,7 +326,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	}
 
 
-	// 8. upload the share to numRead-th slot in root bucket
+	// 8. upload the refreshed stash to server
 	start = time_now;
 	unsigned char* send_buffer_in = new unsigned char[sizeof(CMD_SUCCESS)];
 	sendNrecv(SERVER_ADDR[0]+ ":" + std::to_string(SERVER_PORT), (unsigned char *)&stash_index, sizeof(stash_index), send_buffer_in, 0, CMD_SEND_BLOCK);
@@ -338,6 +339,10 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	cout << "ACCESS OPERATION FOR BLOCK-" << blockID + 1 << " COMPLETED." << endl;
 	cout << "================================================================" << endl;
 
+	end_all = time_now;
+	exp_logs[0] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	cout<< "	[ClientJumpORAM] executing operation of access  in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_all-start_all).count()<< " ns"<<endl;
+
     // 9. store local info to disk
 	FILE* local_data = NULL;
 	if((local_data = fopen(clientTempPath.c_str(),"wb+")) == NULL){
@@ -347,9 +352,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	fwrite(this->pos_map->data(), NStore,sizeof(TYPE_INDEX), local_data);
 	fwrite(this->data_cache->data(), DATA_CACHE, sizeof(TYPE_DATA_CACHE), local_data);
 	fclose(local_data);
-	end_all = time_now;
-	exp_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	cout<< "	[ClientJumpORAM] executing operation of access  in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_all-start_all).count()<< " ns"<<endl;
+
 	// 12. write log
 	Utils::write_list_to_file(to_string(HEIGHT)+"_" + to_string(BLOCK_SIZE)+"_client123_" + timestamp + ".txt",logDir, exp_logs, 9);
 	memset(exp_logs, 0, sizeof(unsigned long int)*9);

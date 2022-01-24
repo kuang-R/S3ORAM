@@ -79,6 +79,7 @@ const std::string clientDataDir = rootPath + "client/";
 
 const std::string clientTempPath = rootPath + "client_local/local_data";
 
+
 const std::string logDir = "../" + to_string(H) + "_" + to_string(BLOCK_SIZE) + "/" + "log/";
 //=============================================================================
 

@@ -29,8 +29,11 @@ S3ORAM::~S3ORAM()
  * @param metaData: (output) metaData of position map for scanning optimizations
  * @return 0 if successful
  */
-int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
+int S3ORAM::build(vector<TYPE_INDEX> *pos_map, unsigned long int *exp_logs)
 {
+    auto start = time_now;
+    auto end = time_now;
+
     FILE* file_out = NULL;
     string path = clientDataDir + to_string(0);
 	if((file_out = fopen(path.c_str(),"wb+")) == NULL)
@@ -45,14 +48,23 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
     boost::progress_display show_progress2(NStore);
 
     //initialize the position map
+	start = time_now;
     for(TYPE_ID i = 0; i < (*pos_map).size() ;i++)
     {
         (*pos_map)[i] = i;
     }
     //random permutation using built-in function
     std::random_shuffle ( pos_map->begin(), pos_map->end());
+	end = time_now;
+
+	exp_logs[0] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	cout<<endl;
+    cout<< "Elapsed Time for create position map: "<< exp_logs[0] <<" ns"<<endl;
+
+    cout<<endl;
 
     //generate and write random blocks
+	start = time_now;
 	TYPE_DATA *block = new TYPE_DATA[DATA_CHUNKS];
 	for (TYPE_INDEX i = 0; i < NStore; i++)
 	{
@@ -62,6 +74,13 @@ int S3ORAM::build(vector<TYPE_INDEX> *pos_map)
 	}
 	delete[] block;
 	fclose(file_out);
+	end = time_now;
+
+	exp_logs[1] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	cout<<endl;
+    cout<< "Elapsed Time for create database: "<< exp_logs[1] <<" ns"<<endl;
+    cout<<endl;
+
 	return 0;
 }
 

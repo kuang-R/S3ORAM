@@ -4,7 +4,7 @@
  *  Created on: Mar 15, 2017
  *      Author: ceyhunozkaptan, thanghoang
  */
- 
+
 #ifndef SSORAM_HPP
 #define SSORAM_HPP
 
@@ -15,11 +15,11 @@ class S3ORAM
 public:
     S3ORAM();
     ~S3ORAM();
-    
-    int build(vector<TYPE_INDEX> *pos_map);
+
+	int build(vector<TYPE_INDEX> *pos_map, unsigned long int *exp_logs);
 
     int getEvictIdx (TYPE_INDEX *srcIdx, TYPE_INDEX *destIdx, TYPE_INDEX *siblIdx, string evict_str);
-    
+
 	string getEvictString(TYPE_ID n_evict);
 
 	int subSetSequenceIdx(TYPE_INDEX* fullPath, TYPE_INDEX pathID);
@@ -33,5 +33,5 @@ public:
 	int precomputeShares(TYPE_DATA input, TYPE_DATA** output, TYPE_INDEX output_size);
 
 };
-    
+
 #endif // SSORAM_HPP
