@@ -220,6 +220,8 @@ int ClientS3ORAM::sendORAMTree()
  */  
 int ClientS3ORAM::access(TYPE_INDEX blockID)
 {
+	//log the logical address for block accessed 
+	exp_logs[4] = blockID;
 	auto start_all = time_now;
 	auto end_all = time_now;
 	start_all = time_now;
@@ -237,7 +239,8 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 		cout << "	[ClientS3ORAM] PhysicalID in Data Cache = " << physicalID <<endl;
 		exp_logs[0] = 1;
 	}
-	
+	//log the physical address corresponding to the block accessed
+	exp_logs[5] = physicalID;
     
     // 2. create stash_index
 	TYPE_INDEX stash_index = 0;
@@ -287,15 +290,18 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
     if (physicalID != -1){
 		//update the information in position map
 		TYPE_INDEX index_data_cache = (*data_cache)[block_index_cache].logicalID;
+		//log the updated physical address corresponding to the block accessed
 		cout << "================================================================" << endl;
 		cout << "(*data_cache)[block_index_cache].logicalID-" << (*data_cache)[block_index_cache].logicalID <<endl; 
 		cout << "================================================================" << endl;
 		if(index_data_cache == -1){
+			exp_logs[6] = 0;
 			//if the swapping block in data cache is dummy block
 			(*data_cache)[block_index_cache].logicalID = blockID;
 			(*pos_map)[blockID] = -1;
 		}else{
 			//if the swapping block in data cache is real block
+			exp_logs[6] = index_data_cache;
 			(*data_cache)[block_index_cache].logicalID = blockID;
 			std::swap((*pos_map)[blockID], (*pos_map)[index_data_cache]);	
 		}
@@ -327,7 +333,7 @@ int ClientS3ORAM::access(TYPE_INDEX blockID)
 	exp_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
 	cout<< "	[ClientJumpORAM] executing operation of access  in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_all-start_all).count()<< " ns"<<endl;
 	// 12. write log
-	Utils::write_list_to_file(to_string(HEIGHT)+"_" + to_string(BLOCK_SIZE)+"_client_" + timestamp + ".txt",logDir, exp_logs, 9);
+	Utils::write_list_to_file(to_string(HEIGHT)+"_" + to_string(BLOCK_SIZE)+"_client123_" + timestamp + ".txt",logDir, exp_logs, 9);
 	memset(exp_logs, 0, sizeof(unsigned long int)*9);
 	return 0;
 }
