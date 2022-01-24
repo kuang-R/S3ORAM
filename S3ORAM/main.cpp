@@ -12,14 +12,14 @@ using namespace std;
 unsigned int nthreads = std::thread::hardware_concurrency();
 
 int main(int argc, char **argv)
-{    
+{
 	srand((unsigned)time(NULL));
-    
+
     string mkdir_cmd = "mkdir -p ";
     string mkdir_localState = mkdir_cmd + clientLocalDir;
     string mkdir_unsharedData = mkdir_cmd + clientDataDir;
     string mkdir_log = mkdir_cmd + logDir;
-    
+
     system(mkdir_localState.c_str());
     system(mkdir_unsharedData.c_str());
     system(mkdir_log.c_str());
@@ -30,24 +30,20 @@ int main(int argc, char **argv)
     }
 
     int choice;
-    zz_p::init(P);
-    //set random seed for NTL
-    ZZ seed = conv<ZZ>("123456789101112131415161718192021222324");
-    SetSeed(seed);
-    
+
 	cout << "CLIENT(1) or SERVER(2): ";
 	cin >> choice;
 	cout << endl;
-	
+
 	if(choice == 2)
 	{
-        
+
 		ServerS3ORAM*  server = new ServerS3ORAM();
-		server->start(); 
+		server->start();
 	}
 	else if (choice == 1)
 	{
-        
+
 		ClientS3ORAM* client = new ClientS3ORAM();
         int access, start;
 		char response = ' ';
@@ -74,21 +70,21 @@ int main(int argc, char **argv)
             {
                 client->sendORAMTree();
             }
-		    
+
         }
 		cout << "SERVERS READY? (Press ENTER to Continue)";
 		cin.ignore();
 		cin.ignore();
 		cin.clear();
 		cout << endl<<endl<<endl;
-		
+
 	beginning:
         cout << "SEQUENTIAL WARM-UP(1) OR RANDOM ACCESS(2)?";
 		cin >> choice;
 		cout << endl;
-		
 
-		
+
+
 		if(choice == 1)
 		{
 			cout << "START FROM?(1-" << NStore << ")";
@@ -101,12 +97,12 @@ int main(int argc, char **argv)
 				cout << "=================================================================" << endl;
 				cout << "[main] Sequential Access for " << j+1 << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
-				
+
 				client->access(j);
 				cout << "=================================================================" << endl;
 				cout << "[main] Sequential Access for " << j+1 << " IS COMPLETED!" <<endl;
 				cout << "=================================================================" << endl;
-				
+
 				cout << endl;
 				do
 				{
@@ -115,38 +111,38 @@ int main(int argc, char **argv)
 					response = tolower(response);
 				}
 				while( !cin.fail() && response!='y' && response!='n' );
-					
+
 				if (response == 'n')
 				{
 					goto beginning;
 				}
-				
+
 			}
 		}
 		else if(choice == 2)
 		{
 			cout << "HOW MANY RANDOM ACCESS?";
 			cin >> access;
-			
+
 
 			for(int j = 1 ; j <= access; j++)
 			{
-				random_access = rand() % NStore; 
+				random_access = rand() % NStore;
 				cout << endl;
 				cout << "=================================================================" << endl;
 				cout << "[main] Random Access for " << random_access +1 << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
-				
-				
+
+
 				client->access(random_access);
-				
+
 				cout << "=================================================================" << endl;
 				cout << "[main] Random Access for " << random_access + 1 << " IS COMPLETED!" <<endl;
 				cout << "=================================================================" << endl;
 			}
-			
 
-			
+
+
 			cout << endl;
 			do
 			{
@@ -155,7 +151,7 @@ int main(int argc, char **argv)
 				response = tolower(response);
 			}
 			while( !cin.fail() && response!='y' && response!='n' );
-			
+
 			if (response == 'y')
 			{
 				goto beginning;
@@ -172,6 +168,6 @@ int main(int argc, char **argv)
 	{
 		cout << "COME ON!!" << endl;
 	}
-     
+
     return 0;
 }

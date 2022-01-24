@@ -35,8 +35,7 @@ static inline std::string to_string(T value)
     return os.str() ;
 }
 
-
-#define NTL_LIB //disable it if compiled for android
+// #define NTL_LIB //disable it if compiled for android
 //=== PARAMETERS ============================================================
 #define BLOCK_SIZE 128
 #define STASH 3
@@ -46,7 +45,7 @@ static inline std::string to_string(T value)
 #define BUCKET_SIZE 333
 
 static const unsigned long long P = 1073742353; //prime field - should have length equal to the defined TYPE_DATA
-const int H = HEIGHT; 
+const int H = HEIGHT;
 typedef unsigned long long TYPE_DATA;
 
 
@@ -66,7 +65,7 @@ const long long int vandermonde[NUM_SERVERS] = {7, -21+P, 35, -35+P, 21, -7+P, 1
 //=== SERVER INFO ============================================================
 
 	//SERVER IP ADDRESSES
-const std::string SERVER_ADDR[NUM_SERVERS] = {"tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost"}; 	
+const std::string SERVER_ADDR[NUM_SERVERS] = {"tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost", "tcp://localhost"};
 #define SERVER_PORT 5555        //define the first port to generate incremental ports for client-server /server-server communications
 
 //============================================================================
@@ -115,7 +114,7 @@ typedef struct type_pos_map
 #define DATA_CHUNKS BLOCK_SIZE/sizeof(TYPE_DATA)
 const TYPE_INDEX N = (int)(pow(2, HEIGHT+1)-1) * BUCKET_SIZE;
 const int STEP = N / STASH + 1;
-const TYPE_INDEX NStore =  STEP * STASH;  
+const TYPE_INDEX NStore =  STEP * STASH;
 
 
 const TYPE_INDEX PRECOMP_SIZE = BUCKET_SIZE*(2*HEIGHT+1)*BUCKET_SIZE*(2*HEIGHT+1);
@@ -128,7 +127,7 @@ const TYPE_INDEX NUM_NODES = (int) (pow(2,HEIGHT+1)-1);
 
 //=== SOCKET COMMAND =========================================
 #define CMD_SEND_ORAM_TREE        		0x000010
-#define CMD_SEND_BLOCK		          	0x00000E 
+#define CMD_SEND_BLOCK		          	0x00000E
 
 #define CMD_SEND_EVICT			        0x000040
 #define CMD_REQUEST_BLOCK		        0x000050

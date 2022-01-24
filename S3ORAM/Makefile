@@ -13,28 +13,28 @@ SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
 ObjectSuffix           :=.o
 DependSuffix           :=.o.d
 PreprocessSuffix       :=.i
-DebugSwitch            :=-g 
+DebugSwitch            :=-g
 IncludeSwitch          :=-I
 LibrarySwitch          :=-l
-OutputSwitch           :=-o 
+OutputSwitch           :=-o
 LibraryPathSwitch      :=-L
 PreprocessorSwitch     :=-D
-SourceSwitch           :=-c 
+SourceSwitch           :=-c
 OutputFile             :=$(IntermediateDirectory)/$(ProjectName)
 Preprocessors          :=
-ObjectSwitch           :=-o 
-ArchiveOutputSwitch    := 
+ObjectSwitch           :=-o
+ArchiveOutputSwitch    :=
 PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="S3ORAM.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  -lntl -lgmp -lzmq -lpthread
-IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). 
-IncludePCH             := 
-RcIncludePath          := 
-Libs                   := 
-ArLibs                 :=  
-LibPath                := $(LibraryPathSwitch). 
+LinkOptions            :=  -lgmp -lzmq -lpthread
+IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch).
+IncludePCH             :=
+RcIncludePath          :=
+Libs                   :=
+ArLibs                 :=
+LibPath                := $(LibraryPathSwitch).
 
 ##
 ## Common variables
@@ -45,7 +45,7 @@ CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
 CXXFLAGS :=  -g -O0 -std=c++11 -Wall -libstdc++ -c -fPIC $(Preprocessors)
 CFLAGS   :=  -g -O0 -Wall $(Preprocessors)
-ASFLAGS  := 
+ASFLAGS  :=
 AS       := /usr/bin/as
 
 
@@ -53,19 +53,19 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/main.cpp$(ObjectSuffix) $(IntermediateDirectory)/Utils.cpp$(ObjectSuffix) $(IntermediateDirectory)/S3ORAM.cpp$(ObjectSuffix) $(IntermediateDirectory)/ClientS3ORAM.cpp$(ObjectSuffix) $(IntermediateDirectory)/ServerS3ORAM.cpp$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/main.cpp$(ObjectSuffix) $(IntermediateDirectory)/Utils.cpp$(ObjectSuffix) $(IntermediateDirectory)/S3ORAM.cpp$(ObjectSuffix) $(IntermediateDirectory)/ClientS3ORAM.cpp$(ObjectSuffix) $(IntermediateDirectory)/ServerS3ORAM.cpp$(ObjectSuffix)
 
 
 
-Objects=$(Objects0) 
+Objects=$(Objects0)
 
 ##
-## Main Build Targets 
+## Main Build Targets
 ##
 .PHONY: all clean PreBuild PrePreBuild PostBuild MakeIntermediateDirs
 all: $(OutputFile)
 
-$(OutputFile): $(IntermediateDirectory)/.d $(Objects) 
+$(OutputFile): $(IntermediateDirectory)/.d $(Objects)
 	@$(MakeDirCommand) $(@D)
 	@echo "" > $(IntermediateDirectory)/.d
 	@echo $(Objects0)  > $(ObjectsFileList)

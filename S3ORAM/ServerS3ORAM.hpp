@@ -18,35 +18,31 @@ private:
 
     //local variable
     std::string CLIENT_ADDR;
-	
+
     //variables for retrieval
-    zz_p** dot_product_vector;
     TYPE_DATA* sumBlock;
 	unsigned char* stashIndex_buffer_in;
-    
-    //socket 
+
+    //socket
     unsigned char* block_buffer_in;
     unsigned char* block_buffer_out;
     unsigned char* stash_buffer_out;
     unsigned char* stash_buffer_in;
 
 public:
-    ServerS3ORAM(); 
+    ServerS3ORAM();
     ~ServerS3ORAM();
 
     int start();
-    
+
     // main functions
     int retrieve(zmq::socket_t& socket);
     int evict(zmq::socket_t& socket);
-    int recvBlock(zmq::socket_t& socket); 
+    int recvBlock(zmq::socket_t& socket);
     int recvORAMTree(zmq::socket_t& socket);
 
-    // retrieval subroutine 
+    // retrieval subroutine
     static void* thread_dotProduct_func(void* args);
-
-    // eviction subroutine
-    int multEvictTriplet( zz_p** evictMatrix);
 
     static int send(std::string ADDR, unsigned char* input, size_t inputSize);
     static int recv(std::string ADDR, unsigned char* output, size_t outputSize);
@@ -56,8 +52,8 @@ public:
     static void* thread_socket_func(void* args);
     static void* loadRetrievalData_func(TYPE_INDEX* sss, unsigned char* sbo);
     static void* thread_loadTripletData_func(void* args);
-    
-    static unsigned long int server_logs[13]; 
+
+    static unsigned long int server_logs[13];
     static unsigned long int thread_max;
     static char timestamp[16];
 };

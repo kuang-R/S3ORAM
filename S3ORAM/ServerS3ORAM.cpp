@@ -25,12 +25,12 @@ char ServerS3ORAM::timestamp[16];
 ServerS3ORAM::ServerS3ORAM()
 {
 	this->CLIENT_ADDR = "tcp://*:" + std::to_string(SERVER_PORT);
-	
+
 	cout<<endl;
 	cout << "=================================================================" << endl;
 	cout<< "Server Starting" <<endl;
 	cout << "=================================================================" << endl;
-	
+
     this->sumBlock = new TYPE_DATA[DATA_CHUNKS];
 	this->block_buffer_in = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS];
 	this->block_buffer_out = new unsigned char[sizeof(TYPE_DATA)*DATA_CHUNKS];
@@ -47,11 +47,11 @@ ServerS3ORAM::~ServerS3ORAM()
 /**
  * Function Name: start
  *
- * Description: Starts the server to wait for a command from the client. 
+ * Description: Starts the server to wait for a command from the client.
  * According to the command, server performs certain subroutines for distributed ORAM operations.
- * 
+ *
  * @return 0 if successful
- */ 
+ */
 int ServerS3ORAM::start()
 {
 	int ret = 1;
@@ -59,20 +59,20 @@ int ServerS3ORAM::start()
     unsigned char buffer[sizeof(CMD)];
     zmq::context_t context(1);
     zmq::socket_t socket(context,ZMQ_REP);
-    
+
 	cout<< "[Server] Socket is OPEN on " << this->CLIENT_ADDR << endl;
     socket.bind(this->CLIENT_ADDR.c_str());
 
-	while (true) 
+	while (true)
 	{
 		cout<< "[Server] Waiting for a Command..." <<endl;
         socket.recv(buffer,sizeof(CMD));
-		
+
         memcpy(&CMD, buffer, sizeof(CMD));
 		cout<< "[Server] Command RECEIVED!" <<endl;
-		
+
         socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
-        
+
         switch(CMD)
         {
 			case CMD_SEND_ORAM_TREE:
@@ -123,7 +123,7 @@ int ServerS3ORAM::start()
 				break;
 		}
 	}
-	
+
 	ret = 0;
     return ret;
 }
@@ -133,10 +133,10 @@ int ServerS3ORAM::start()
  * Function Name: sendORAMTree
  *
  * Description: Distributes generated and shared ORAM buckets to servers over network
- * 
+ *
  * @return 0 if successful
- */  
- 
+ */
+
 int ServerS3ORAM::recvORAMTree(zmq::socket_t& socket)
 {
     int ret = 1;
@@ -154,7 +154,7 @@ int ServerS3ORAM::recvORAMTree(zmq::socket_t& socket)
 		socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS),0);
     }
 	fclose(file_out);
-	
+
 	cout<< "	[recvORAMTree] ACK is SENT!" <<endl;
 	ret = 0;
     return ret ;
@@ -164,33 +164,33 @@ int ServerS3ORAM::recvORAMTree(zmq::socket_t& socket)
 /**
  * Function Name: retrieve
  *
- * Description: Starts retrieve operation for a block by receiving logical access vector and path ID from the client. 
+ * Description: Starts retrieve operation for a block by receiving logical access vector and path ID from the client.
  * According to path ID, server performs dot-product operation between its block shares on the path and logical access vector.
  * The result of the dot-product is send back to the client.
- * 
+ *
  * @param socket: (input) ZeroMQ socket instance for communication with the client
  * @return 0 if successful
- */  
+ */
 int ServerS3ORAM::retrieve(zmq::socket_t& socket)
 {
 	memset(server_logs, 0, sizeof(unsigned long int)*13);
-	
+
 	int ret = 1;
-	
+
 	auto start = time_now;
 	socket.recv(stashIndex_buffer_in,sizeof(TYPE_INDEX),0);
 	auto end = time_now;
 	cout<< "	[SendBlock] receive stash index in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() << " ns" <<endl;
     server_logs[0] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	
+
 	TYPE_INDEX stashIndex;
 	memcpy(&stashIndex, stashIndex_buffer_in, sizeof(stashIndex));
-	
-    
+
+
     S3ORAM ORAM;
 	TYPE_INDEX subSetSequenceIdx[STASH];
     ORAM.subSetSequenceIdx(subSetSequenceIdx, stashIndex);
-	
+
     //use thread to load data from files
     start = time_now;
 	ServerS3ORAM::loadRetrievalData_func(subSetSequenceIdx, stash_buffer_out);
@@ -198,7 +198,7 @@ int ServerS3ORAM::retrieve(zmq::socket_t& socket)
 	long load_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
     cout<< "	[SendBlock] subSet Sequence blocks READ from Disk in " << load_time << " ns"<<endl;
     server_logs[1] = load_time;
-    
+
     start = time_now;
     cout<< "	[SendBlock] Sending Block Stash with ID-" << stashIndex <<endl;
     socket.send(stash_buffer_out,sizeof(TYPE_DATA)*DATA_CHUNKS*STASH);
@@ -213,12 +213,12 @@ int ServerS3ORAM::retrieve(zmq::socket_t& socket)
 /**
  * Function Name: recvBlock
  *
- * Description: Receives the share of previosly accessed block from the client 
- * with its new index number and stores it into root bucket for later eviction. 
- * 
+ * Description: Receives the share of previosly accessed block from the client
+ * with its new index number and stores it into root bucket for later eviction.
+ *
  * @param socket: (input) ZeroMQ socket instance for communication with the client
  * @return 0 if successful
- */  
+ */
 int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
 {
 	cout<< "	[recvBlock] Receiving Stash Index..." <<endl;
@@ -228,22 +228,22 @@ int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
 	auto end = time_now;
 	cout<< "	[recvBlock] Stash Index RECV in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
     server_logs[3] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-    
+
 	//send a Ok to client
 	socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
-	
+
 	//receive the other command named CMD_SEND_BLOCK
 	int CMD;
 	unsigned char buffer[sizeof(CMD)];
 	cout<< "[Server] Waiting for a Command..." <<endl;
 	socket.recv(buffer,sizeof(CMD));
-		
+
 	memcpy(&CMD, buffer, sizeof(CMD));
 	cout<< "[Server] Command RECEIVED!" <<endl;
-		
+
 	socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
-	
-	// update the blocks in server 
+
+	// update the blocks in server
 	start = time_now;
     socket.recv(stash_buffer_in, sizeof(TYPE_DATA)*DATA_CHUNKS*STASH, 0);
 	cout<< "[Server] Stash RECEIVED!" <<endl;
@@ -268,7 +268,7 @@ int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
     end = time_now;
 	cout<< "[recvBlock] Stash STORED in Disk in " << std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() <<endl;
 	server_logs[5] = std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
-	
+
     socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
 	cout<< "	[recvStash] ACK is SENT!" <<endl;
     Utils::write_list_to_file(to_string(HEIGHT) + "_" + to_string(BLOCK_SIZE) + "_server" + to_string(0)+ "_" + timestamp + ".txt",logDir, server_logs, 13);
@@ -279,33 +279,18 @@ int ServerS3ORAM::recvBlock(zmq::socket_t& socket)
  * Function Name: evict
  *
  * Description: Starts eviction operation with the command of the client by receiving eviction matrix
- * and eviction path no from the client. According to eviction path no, the server performs 
+ * and eviction path no from the client. According to eviction path no, the server performs
  * matrix multiplication with its buckets and eviction matrix to evict blocks. After eviction operation,
- * the degree of the sharing polynomial doubles. Thus all the servers distributes their shares and perform 
- * degree reduction routine simultaneously. 
- * 
+ * the degree of the sharing polynomial doubles. Thus all the servers distributes their shares and perform
+ * degree reduction routine simultaneously.
+ *
  * @param socket: (input) ZeroMQ socket instance for communication with the client
  * @return 0 if successful
- */  
+ */
 int ServerS3ORAM::evict(zmq::socket_t& socket)
 {
-    
+
     return 0;
-}
-
-
-/**
- * Function Name: multEvictTriplet
- *
- * Description: Performs matrix multiplication between received eviction matrix and affected buckets
- * for eviction operation 
- * 
- * @param evictMatrix: (input) Received eviction matrix from the clietn
- * @return 0 if successful
- */  
-int ServerS3ORAM::multEvictTriplet(zz_p** evictMatrix)
-{
-	
 }
 
 
@@ -313,13 +298,13 @@ int ServerS3ORAM::multEvictTriplet(zz_p** evictMatrix)
  * Function Name: thread_socket_func & send & recv
  *
  * Description: Generic threaded socket functions for send and receive operations
- * 
+ *
  * @return 0 if successful
- */  
+ */
 void *ServerS3ORAM::thread_socket_func(void* args)
 {
     struct_socket* opt = (struct_socket*) args;
-	
+
 	if(opt->isSend)
 	{
 		auto start = time_now;
@@ -340,15 +325,15 @@ int ServerS3ORAM::send(std::string ADDR, unsigned char* input, size_t inputSize)
     zmq::socket_t socket(context,ZMQ_REQ);
 
     socket.connect(ADDR.c_str());
-	
+
     unsigned char buffer_in[sizeof(CMD_SUCCESS)];
-	
+
     try
     {
 		cout<< "	[ThreadedSocket] Sending to " << ADDR << endl;
 		socket.send (input, inputSize);
 		cout<< "	[ThreadedSocket] Data SENT!" << ADDR << endl;
-        
+
         socket.recv(buffer_in, sizeof(CMD_SUCCESS));
         cout<< "	[ThreadedSocket] ACK RECEIVED!" << ADDR << endl;
     }
@@ -366,15 +351,15 @@ int ServerS3ORAM::recv(std::string ADDR, unsigned char* output, size_t outputSiz
 {
 	zmq::context_t context(1);
     zmq::socket_t socket(context,ZMQ_REP);
-	
+
     socket.bind(ADDR.c_str());
-	
+
     try
     {
 		cout<< "	[ThreadedSocket] Waiting Client on " << ADDR << endl;
 		socket.recv (output, outputSize);
 		cout<< "	[ThreadedSocket] Data RECEIVED! " << ADDR <<endl;
-        
+
         socket.send((unsigned char*)CMD_SUCCESS,sizeof(CMD_SUCCESS));
         cout<< "	[ThreadedSocket] ACK SENT! "  << ADDR<<endl;
     }
@@ -383,66 +368,18 @@ int ServerS3ORAM::recv(std::string ADDR, unsigned char* output, size_t outputSiz
         cout<<"Socket error!";
         goto exit;
     }
-    
+
 exit:
 	socket.close();
 	return 0;
 }
 
-
-/**
- * Function Name: thread_dotProduct_func
- *
- * Description: Threaded dot-product operation 
- * 
- */  
-void *ServerS3ORAM::thread_dotProduct_func(void* args)
-{
-    THREAD_COMPUTATION* opt = (THREAD_COMPUTATION*) args;
-  
-    //std::cout << " CPU # " << sched_getcpu() << "\n";
-    int size = (H+1)*BUCKET_SIZE;
-    for(int k = opt->startIdx; k < opt->endIdx; k++)
-    {
-        opt->dot_product_output[k] = InnerProd_LL(opt->data_vector[k],opt->select_vector,size,P,zz_p::ll_red_struct());
-    }
-}
-
-
-/**
- * Function Name: thread_crossProduct_func
- *
- * Description: Threaded cross-product operation 
- * 
- */  
-void *ServerS3ORAM::thread_crossProduct_func(void* args)
-{
-    THREAD_COMPUTATION* opt = (THREAD_COMPUTATION*) args;
-    
-    int currBucket;
-	int currIndex;
-	TYPE_INDEX n = BUCKET_SIZE*(2);
-    //std::cout << " CPU # " << sched_getcpu() << "\n";
-	for(int l = opt->startIdx ; l < opt->endIdx; l++)
-    {
-        currBucket = l/BUCKET_SIZE; //this can be removed later
-		currIndex = l % BUCKET_SIZE; 
-		
-        for(int k = 0 ; k < DATA_CHUNKS; k++)
-        {
-            opt->cross_product_output[k][currBucket*BUCKET_SIZE + currIndex] = InnerProd_LL(opt->data_vector_triplet[k],opt->evict_matrix[l],n,P,zz_p::ll_red_struct());
-        }
-    }
-    pthread_exit((void*)opt);
-}
-
-
 /**
  * Function Name: thread_loadRetrievalData_func
  *
  * Description: Threaded load function to read buckets in a path from disk storage
- * 
- */  
+ *
+ */
 void* ServerS3ORAM::loadRetrievalData_func(TYPE_INDEX* sss, unsigned char* sbo)
 {
 
@@ -465,8 +402,8 @@ void* ServerS3ORAM::loadRetrievalData_func(TYPE_INDEX* sss, unsigned char* sbo)
  * Function Name: thread_loadTripletData_func
  *
  * Description: Threaded load function to read triplet buckets from disk storage
- * 
- */  
+ *
+ */
 void* ServerS3ORAM::thread_loadTripletData_func(void* args)
 {
 }
