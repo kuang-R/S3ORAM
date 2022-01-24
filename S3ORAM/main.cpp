@@ -134,14 +134,14 @@ int main(int argc, char **argv)
 				random_access = rand() % NStore; 
 				cout << endl;
 				cout << "=================================================================" << endl;
-				cout << "[main] Random Access for " << random_access << " IS STARTING!" <<endl;
+				cout << "[main] Random Access for " << random_access +1 << " IS STARTING!" <<endl;
 				cout << "=================================================================" << endl;
 				
 				
 				client->access(random_access);
 				
 				cout << "=================================================================" << endl;
-				cout << "[main] Random Access for " << random_access << " IS COMPLETED!" <<endl;
+				cout << "[main] Random Access for " << random_access + 1 << " IS COMPLETED!" <<endl;
 				cout << "=================================================================" << endl;
 			}
 			
